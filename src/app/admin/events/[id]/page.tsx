@@ -13,6 +13,8 @@ import {
 import { updateEventStatusAction } from "@/app/admin/actions";
 import { requireAdmin } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000";
 
 type Props = { params: Promise<{ id: string }> };

@@ -22,6 +22,7 @@ export async function setAdminSession(): Promise<void> {
   const jar = await cookies();
   jar.set(COOKIE_NAME, "1", {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,

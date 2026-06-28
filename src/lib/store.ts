@@ -12,21 +12,55 @@ import type {
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
 
-async function ensureStore(): Promise<Store> {
+const memoryKey = "__meetMeThereStore";
+
+function getMemoryStore(): Store {
+  const globalStore = globalThis as typeof globalThis & {
+    [memoryKey]?: Store;
+  };
+  if (!globalStore[memoryKey]) {
+    globalStore[memoryKey] = createDemoStore();
+  }
+  return globalStore[memoryKey];
+}
+
+function useMemoryStore(store: Store): void {
+  (globalThis as typeof globalThis & { [memoryKey]?: Store })[memoryKey] = store;
+}
+
+async function readFileStore(): Promise<Store | null> {
   try {
     const raw = await fs.readFile(STORE_PATH, "utf8");
     return JSON.parse(raw) as Store;
   } catch {
-    const demo = createDemoStore();
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(STORE_PATH, JSON.stringify(demo, null, 2));
-    return demo;
+    return null;
   }
 }
 
+async function writeFileStore(store: Store): Promise<boolean> {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureStore(): Promise<Store> {
+  const fromFile = await readFileStore();
+  if (fromFile) return fromFile;
+
+  const demo = createDemoStore();
+  const saved = await writeFileStore(demo);
+  if (saved) return demo;
+
+  return getMemoryStore();
+}
+
 async function saveStore(store: Store): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
+  const saved = await writeFileStore(store);
+  if (!saved) useMemoryStore(store);
 }
 
 export async function getStore(): Promise<Store> {
