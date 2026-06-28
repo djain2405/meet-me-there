@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meet Me There
 
-## Getting Started
+A lean pilot toolkit for matching people attending events alone into small groups before an event. Organizers share a signup link; you manage matching, coordination, and feedback from an admin dashboard.
 
-First, run the development server:
+**Works out of the box** — no database setup required. Demo data seeds automatically on first run.
+
+## Quick start
 
 ```bash
+nvm use 20
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://127.0.0.1:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Page | URL |
+|------|-----|
+| Marketing / demo home | `/` |
+| Demo attendee signup | `/e/riverside-summer-social` |
+| Admin dashboard | `/admin/login` (password: `demo`) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## What organizers get
 
-## Learn More
+Share a single link (e.g. in a confirmation email or on the event page):
 
-To learn more about Next.js, take a look at the following resources:
+```
+https://yoursite.com/e/your-event-slug
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Attendees complete a signup form with arrival time, preferences, and safety acknowledgments. Ticketing stays with the organizer.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## What you manage (operator)
 
-## Deploy on Vercel
+1. **Create events** — name, date, venue, public meeting point, ticket URL
+2. **Review signups** — contact info, preferences, connector volunteers
+3. **Match groups** — assign attendees into groups of 3–5, set meeting details and chat links
+4. **Send survey links** — copy per-attendee feedback URLs after the event
+5. **Share results** — anonymized summary metrics for the organizer
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Pilot workflow
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| When | Action |
+|------|--------|
+| 1–2 weeks before | Create event, share signup link |
+| 3–5 days before | Review signups, start matching |
+| 24–48 hours before | Finalize groups, send meeting instructions |
+| Event day | Send reminder (manual for now) |
+| After event | Distribute survey links, review feedback |
+| Within 1 week | Share organizer summary from admin |
+
+## Deploy
+
+```bash
+npm run build
+```
+
+Set `ADMIN_PASSWORD` and `NEXT_PUBLIC_SITE_URL` in your hosting environment. Data persists in `data/store.json` on the server filesystem — for production at scale, plan a database migration.
+
+## Tech
+
+- Next.js 16 · React 19 · Tailwind CSS 4
+- File-based JSON store (zero-config demo)
+- Server actions for forms and admin operations
