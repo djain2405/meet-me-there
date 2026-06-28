@@ -177,11 +177,11 @@ function GroupCard({
           <dl className="mb-3 space-y-1 text-sm text-stone-600">
             <div>
               <dt className="inline font-medium">Meet: </dt>
-              <dd className="inline">{group.meetingTime || "—"}</dd>
+              <dd className="inline">{group.meetingTime || "Not set"}</dd>
             </div>
             <div>
               <dt className="inline font-medium">Where: </dt>
-              <dd className="inline">{group.meetingLocation || "—"}</dd>
+              <dd className="inline">{group.meetingLocation || "Not set"}</dd>
             </div>
           </dl>
           <ul className="mb-3 space-y-1">
@@ -348,7 +348,7 @@ export function SignupStatusSelect({
       <option value="confirmed">Confirmed</option>
       <option value="declined">Declined</option>
       <option value="attended">Attended</option>
-      <option value="no-show">No-show</option>
+      <option value="no-show">No show</option>
     </select>
   );
 }

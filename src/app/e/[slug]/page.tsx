@@ -37,7 +37,7 @@ export default async function EventSignupPage({ params }: Props) {
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-muted">
             Sign up and we&apos;ll match you with a few friendly people heading
-            to the same event. Same meetup spot, same arrival window — you walk
+            to the same event. Same meetup spot, same arrival window. You walk
             in together instead of hovering by the snack table.
           </p>
         </div>
@@ -98,7 +98,7 @@ export default async function EventSignupPage({ params }: Props) {
               >
                 Grab one from the organizer →
               </a>{" "}
-              (we don&apos;t handle ticketing — just the friendly arrival part)
+              (we don&apos;t handle ticketing, just the friendly arrival part)
             </p>
           ) : null}
         </div>

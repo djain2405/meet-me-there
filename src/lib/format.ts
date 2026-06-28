@@ -10,6 +10,6 @@ export function formatEventDate(date: string, startTime: string): string {
 }
 
 export function pct(numerator: number, denominator: number): string {
-  if (denominator === 0) return "—";
+  if (denominator === 0) return "N/A";
   return `${Math.round((numerator / denominator) * 100)}%`;
 }

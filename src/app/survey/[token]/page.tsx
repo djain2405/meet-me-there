@@ -7,7 +7,7 @@ import { getSignupBySurveyToken, getSurveyForSignup } from "@/lib/store";
 type Props = { params: Promise<{ token: string }> };
 
 export const metadata: Metadata = {
-  title: "Quick check-in — Meet Me There",
+  title: "Quick check in. Meet Me There",
 };
 
 export default async function SurveyPage({ params }: Props) {
@@ -23,9 +23,9 @@ export default async function SurveyPage({ params }: Props) {
       <BrandHeader showNav={false} />
 
       <main className="mx-auto max-w-xl px-4 py-10">
-        <p className="section-badge">60-second check-in</p>
+        <p className="section-badge">60 second check in</p>
         <h1 className="mt-3 text-3xl font-bold text-ink">
-          Hey {signup.firstName} — how&apos;d it go?
+          Hey {signup.firstName}, how&apos;d it go?
         </h1>
         <p className="mt-3 text-lg text-muted">
           Your honest take on <strong className="text-ink">{event.name}</strong>{" "}

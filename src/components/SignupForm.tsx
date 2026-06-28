@@ -48,11 +48,11 @@ export function SignupForm({ event }: Props) {
         <p className="text-3xl font-bold text-ink">You&apos;re in, {state.firstName}!</p>
         <p className="mx-auto mt-4 max-w-md text-lg text-muted">
           We&apos;ll match you with a friendly little group before{" "}
-          <strong className="text-ink">{event.name}</strong>. Watch your inbox —
-          your meetup details are on the way.
+          <strong className="text-ink">{event.name}</strong>. Watch your inbox.
+          Your meetup details are on the way.
         </p>
         <p className="mt-6 text-sm text-muted">
-          Still need a ticket? Grab one from the organizer — we&apos;re just here
+          Still need a ticket? Grab one from the organizer. We&apos;re just here
           to make arrival less awkward.
         </p>
       </div>
@@ -100,7 +100,7 @@ export function SignupForm({ event }: Props) {
               name="phone"
               type="tel"
               className="input-fun"
-              placeholder="Only if you want day-of texts"
+              placeholder="Only if you want day of texts"
             />
           </label>
         </div>
@@ -109,7 +109,7 @@ export function SignupForm({ event }: Props) {
       <FormSection
         badge="Step 2"
         title="What's the plan?"
-        subtitle="No wrong answers — even 'maybe' helps us plan."
+        subtitle="No wrong answers. Even 'maybe' helps us plan."
       >
         <fieldset className="space-y-3">
           <legend className="sr-only">Attendance plans</legend>
@@ -122,7 +122,7 @@ export function SignupForm({ event }: Props) {
             />
             <span>
               <span className="block font-semibold text-ink">
-                I&apos;m going — count me in!
+                I&apos;m going. Count me in!
               </span>
               <span className="text-sm text-muted">
                 Ticket sorted (or sorting it soon). Ready for a group.
@@ -150,7 +150,7 @@ export function SignupForm({ event }: Props) {
             name="arrivalTime"
             required
             className="input-fun"
-            placeholder="e.g. 5:45 PM — we'll sync your group"
+            placeholder="e.g. 5:45 PM. We'll sync your group"
           />
         </label>
 
@@ -161,7 +161,7 @@ export function SignupForm({ event }: Props) {
           <input
             name="preferredSession"
             className="input-fun"
-            placeholder="Workshop, panel, dance floor — whatever you're into"
+            placeholder="Workshop, panel, dance floor, whatever you're into"
           />
         </label>
       </FormSection>
@@ -169,14 +169,14 @@ export function SignupForm({ event }: Props) {
       <FormSection
         badge="Step 3"
         title="Your comfort zone"
-        subtitle="We'll use this to find your people — not to box you in."
+        subtitle="We'll use this to find your people, not to box you in."
       >
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-ink">
             Ideal group size
           </span>
           <select name="preferredGroupSize" className="input-fun" defaultValue="no-preference">
-            <option value="no-preference">Surprise me — any size works</option>
+            <option value="no-preference">Surprise me, any size works</option>
             <option value="3">Cozy trio (~3)</option>
             <option value="4">Small squad (~4)</option>
             <option value="5">Bigger energy (~5)</option>
@@ -187,7 +187,7 @@ export function SignupForm({ event }: Props) {
           <input type="checkbox" name="comfortPreferences" value="women-only" />
           <span>
             <span className="block font-semibold text-ink">
-              I&apos;d love a women-only group
+              I&apos;d love a women only group
             </span>
             <span className="text-sm text-muted">
               We&apos;ll do our best to honor this when matching.
@@ -224,7 +224,7 @@ export function SignupForm({ event }: Props) {
             you share it
           </li>
           <li className="flex gap-2">
-            <span className="text-teal">✓</span> Leave anytime — your ticket,
+            <span className="text-teal">✓</span> Leave anytime. Your ticket,
             your ride, your call
           </li>
         </ul>
@@ -252,10 +252,10 @@ export function SignupForm({ event }: Props) {
         disabled={pending}
         className="btn-primary w-full px-6 py-4 text-lg"
       >
-        {pending ? "Saving your spot…" : "Yes — find my people →"}
+        {pending ? "Saving your spot…" : "Yes, find my people →"}
       </button>
       <p className="text-center text-xs text-muted">
-        Takes about 2 minutes. Zero awkward cold-opens at the door.
+        Takes about 2 minutes. Zero awkward cold opens at the door.
       </p>
     </form>
   );

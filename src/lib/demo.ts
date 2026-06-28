@@ -9,7 +9,7 @@ export const DEMO_EVENT: PilotEvent = {
   date: "2026-07-18",
   startTime: "6:00 PM",
   venue: "Riverside Community Hall, 42 Oak Street",
-  meetingPoint: "Main entrance — look for the Meet Me There sign near registration",
+  meetingPoint: "Main entrance. Look for the Meet Me There sign near registration",
   scheduleNotes:
     "6:00 PM doors · 6:30 PM welcome · 7:00 PM breakout sessions · 8:30 PM social hour",
   ticketUrl: "https://example.com/tickets/riverside-social",
@@ -100,9 +100,9 @@ const DEMO_GROUPS: Group[] = [
     name: "Group 1",
     meetingTime: "5:45 PM",
     meetingLocation:
-      "Main entrance — look for the Meet Me There sign near registration",
+      "Main entrance. Look for the Meet Me There sign near registration",
     arrivalInstructions:
-      "Meet 15 minutes before doors open. Maya is your group connector — she'll be wearing a green lanyard.",
+      "Meet 15 minutes before doors open. Maya is your group connector. She'll be wearing a green lanyard.",
     chatLink: "https://chat.example.com/group-1",
     connectorSignupId: "sig_demo_1",
   },

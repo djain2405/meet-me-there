@@ -41,7 +41,7 @@ export default async function AdminHomePage() {
           />
           <input
             name="slug"
-            placeholder="url-slug *"
+            placeholder="url slug *"
             required
             className="rounded-xl border border-stone-300 px-3 py-2"
           />

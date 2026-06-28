@@ -49,7 +49,7 @@ export function SurveyForm({
         <label className="choice-card">
           <input type="radio" name="metGroup" value="yes" required />
           <span>
-            <span className="font-semibold">Yep — we connected!</span>
+            <span className="font-semibold">Yep, we connected!</span>
           </span>
         </label>
         <label className="choice-card">
@@ -72,7 +72,7 @@ export function SurveyForm({
             <option value="" disabled>
               Pick one
             </option>
-            <option value="yes">Yes — total game-changer</option>
+            <option value="yes">Yes, total game changer</option>
             <option value="somewhat">A little bit</option>
             <option value="no">Not really</option>
           </select>
@@ -116,7 +116,7 @@ export function SurveyForm({
           name="comments"
           rows={4}
           className="input-fun"
-          placeholder="The good, the awkward, the brilliant — we're all ears."
+          placeholder="The good, the awkward, the brilliant. We're all ears."
         />
       </label>
 

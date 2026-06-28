@@ -4,9 +4,9 @@ import { BrandHeader } from "@/components/BrandHeader";
 import { DEMO_EVENT_SLUG } from "@/lib/demo";
 
 export const metadata: Metadata = {
-  title: "Meet Me There — Show up solo, never feel alone",
+  title: "Meet Me There. Show up solo, never feel alone",
   description:
-    "A friendly way for event-goers to find their people before the doors even open. One link for organizers. Zero awkward hovering at the entrance.",
+    "A friendly way for event goers to find their people before the doors even open. One link for organizers. Zero awkward hovering at the entrance.",
 };
 
 export default function HomePage() {
@@ -29,7 +29,7 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">
-            Meet Me There matches you with a small group before the event — same
+            Meet Me There matches you with a small group before the event. Same
             vibe, same arrival time, one easy spot to find each other. Less
             hovering. More &quot;oh hey, I know you from the group.&quot;
           </p>
@@ -45,7 +45,7 @@ export default function HomePage() {
             </a>
           </div>
           <p className="mt-6 text-sm text-muted">
-            Free pilot · 2-min signup · tickets still through your organizer
+            Free pilot · 2 min signup · tickets still through your organizer
           </p>
         </section>
 
@@ -88,17 +88,17 @@ export default function HomePage() {
               {
                 step: "1",
                 title: "You raise your hand",
-                body: "Quick signup — when you're arriving, what you're into, what would make you comfortable.",
+                body: "Quick signup: when you're arriving, what you're into, what would make you comfortable.",
               },
               {
                 step: "2",
                 title: "We introduce your people",
-                body: "A small group (think 3–5), matched by timing and vibe. Optional group chat. Optional friendly connector.",
+                body: "A small group (think 3 to 5), matched by timing and vibe. Optional group chat. Optional friendly connector.",
               },
               {
                 step: "3",
                 title: "You meet at the door",
-                body: "Same public spot. Same time. Walk in together like you planned it — because you did.",
+                body: "Same public spot. Same time. Walk in together like you planned it, because you did.",
               },
             ].map((item) => (
               <div
@@ -146,7 +146,7 @@ export default function HomePage() {
               <p className="mt-4 max-w-2xl text-lg text-white/85">
                 Drop one link in your confirmation email or event page. We handle
                 signup, matching, and feedback. You keep ticketing, venue, and
-                everything else exactly as-is.
+                everything else exactly as is.
               </p>
             </div>
             <div className="grid gap-6 bg-white p-8 sm:grid-cols-3 sm:p-12">
@@ -156,7 +156,7 @@ export default function HomePage() {
               />
               <OrganizerPerk
                 title="Real outcomes"
-                body="Attendance, comfort, and satisfaction — anonymized for you."
+                body="Attendance, comfort, and satisfaction, anonymized for you."
               />
               <OrganizerPerk
                 title="First pilot free"
@@ -201,7 +201,7 @@ export default function HomePage() {
       </main>
 
       <footer className="border-t border-peach py-8 text-center text-sm text-muted">
-        Meet Me There · Your ticket, your event — we just help you find your people
+        Meet Me There · Your ticket, your event. We just help you find your people
       </footer>
     </div>
   );
@@ -231,7 +231,7 @@ function Quote({ text, who }: { text: string; who: string }) {
   return (
     <blockquote className="fun-card p-6">
       <p className="text-lg leading-relaxed text-ink">&ldquo;{text}&rdquo;</p>
-      <footer className="mt-4 text-sm font-semibold text-teal">— {who}</footer>
+      <footer className="mt-4 text-sm font-semibold text-teal">{who}</footer>
     </blockquote>
   );
 }
