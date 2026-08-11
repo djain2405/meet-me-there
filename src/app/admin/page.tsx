@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
-import { DEMO_EVENT_SLUG } from "@/lib/demo";
 import { formatEventDate } from "@/lib/format";
 import { listEvents } from "@/lib/store";
 import { createEventAction } from "@/app/admin/actions";
@@ -24,11 +23,10 @@ export default async function AdminHomePage() {
           </p>
         </div>
         <Link
-          href={`/e/${DEMO_EVENT_SLUG}`}
+          href="/admin"
           className="text-sm text-teal-dark underline"
-          target="_blank"
         >
-          Preview demo signup page →
+          Refresh events →
         </Link>
       </div>
 

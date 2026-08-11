@@ -13,9 +13,19 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   return jar.get(COOKIE_NAME)?.value === "1";
 }
 
+export function getAdminPassword(): string {
+  const password = process.env.ADMIN_PASSWORD;
+  if (password) return password;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("ADMIN_PASSWORD must be set in production.");
+  }
+
+  return "demo";
+}
+
 export function verifyAdminPassword(password: string): boolean {
-  const expected = process.env.ADMIN_PASSWORD ?? "demo";
-  return password === expected;
+  return password === getAdminPassword();
 }
 
 export async function setAdminSession(): Promise<void> {

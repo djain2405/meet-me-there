@@ -34,7 +34,7 @@ yarn-error.log*
 .env*
 !.env.example
 
-# local JSON store (demo data is auto-seeded on first run)
+# local JSON / SQLite store
 /data/
 
 # vercel

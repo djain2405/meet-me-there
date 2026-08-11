@@ -16,8 +16,7 @@ export default async function AdminLoginPage({ searchParams }: Props) {
         <form action={loginAction} className="fun-card p-8">
           <h1 className="text-xl font-bold text-ink">Operator login</h1>
           <p className="mt-2 text-sm text-muted">
-            Run your pilots, match groups, pull organizer reports. Demo password:{" "}
-            <code className="rounded bg-peach px-1.5 py-0.5 text-coral-dark">demo</code>
+            Match groups, review signups, and pull organizer reports for your pilots.
           </p>
           {error ? (
             <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

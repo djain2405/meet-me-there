@@ -255,7 +255,11 @@ export function SignupForm({ event }: Props) {
         {pending ? "Saving your spot…" : "Yes, find my people →"}
       </button>
       <p className="text-center text-xs text-muted">
-        Takes about 2 minutes. Zero awkward cold opens at the door.
+        Takes about 2 minutes. Zero awkward cold opens at the door.{" "}
+        <a href="/privacy" className="underline underline-offset-2">
+          How we use your info
+        </a>
+        .
       </p>
     </form>
   );

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandHeader } from "@/components/BrandHeader";
-import { DEMO_EVENT_SLUG } from "@/lib/demo";
 
 export const metadata: Metadata = {
   title: "Meet Me There. Show up solo, never feel alone",
@@ -12,7 +11,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <div className="min-h-screen hero-glow">
-      <BrandHeader badge="Pilot · live demo" />
+      <BrandHeader badge="Pilot" />
 
       <main>
         {/* Hero */}
@@ -34,14 +33,8 @@ export default function HomePage() {
             hovering. More &quot;oh hey, I know you from the group.&quot;
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href={`/e/${DEMO_EVENT_SLUG}`}
-              className="btn-primary px-8 py-4 text-lg"
-            >
-              Try the attendee experience →
-            </Link>
-            <a href="#for-organizers" className="btn-secondary px-8 py-4 text-lg">
-              I run events
+            <a href="#for-organizers" className="btn-primary px-8 py-4 text-lg">
+              I run events →
             </a>
           </div>
           <p className="mt-6 text-sm text-muted">
@@ -163,16 +156,12 @@ export default function HomePage() {
                 body="Test the experience before you commit to anything."
               />
             </div>
-            <div className="flex flex-wrap gap-4 border-t-2 border-peach/60 bg-[#fffbf7] px-8 py-6 sm:px-12">
-              <Link href="/admin/login" className="btn-primary px-6 py-3">
-                See the operator dashboard
-              </Link>
-              <Link
-                href={`/e/${DEMO_EVENT_SLUG}`}
-                className="btn-secondary px-6 py-3"
-              >
-                Preview what attendees see
-              </Link>
+            <div className="border-t-2 border-peach/60 bg-[#fffbf7] px-8 py-6 sm:px-12">
+              <p className="text-sm text-muted">
+                Interested in a pilot? Reply to your Meet Me There outreach or
+                share your event details and we&apos;ll send a ready-to-post signup
+                link.
+              </p>
             </div>
           </div>
         </section>
@@ -187,21 +176,22 @@ export default function HomePage() {
               You shouldn&apos;t have to psych yourself up in the parking lot.
               Let&apos;s make the first five minutes easier.
             </p>
-            <Link
-              href={`/e/${DEMO_EVENT_SLUG}`}
+            <a
+              href="#for-organizers"
               className="mt-8 inline-block rounded-full bg-white px-8 py-4 text-lg font-bold text-coral-dark shadow-md transition hover:scale-[1.02]"
             >
-              See the live demo →
-            </Link>
-            <p className="mt-4 text-sm text-white/75">
-              Demo password for admin: <strong>demo</strong>
-            </p>
+              Run a pilot with us →
+            </a>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-peach py-8 text-center text-sm text-muted">
         Meet Me There · Your ticket, your event. We just help you find your people
+        {" · "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
+          Privacy
+        </Link>
       </footer>
     </div>
   );
