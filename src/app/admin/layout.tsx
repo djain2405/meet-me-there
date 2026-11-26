@@ -13,7 +13,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-stone-100">
       {authed ? (
-        <header className="border-b border-stone-200 bg-white">
+        <header className="border-b border-stone-200 bg-white print:hidden">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
             <div className="flex items-center gap-4">
               <Link href="/admin" className="font-semibold text-teal-dark">

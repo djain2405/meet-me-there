@@ -11,6 +11,8 @@ export async function submitSurveyAction(
   const signupId = String(formData.get("signupId") ?? "");
   const eventId = String(formData.get("eventId") ?? "");
   const metGroup = formData.get("metGroup") === "yes";
+  const attendedValue = String(formData.get("attended") ?? "");
+  const attended = attendedValue === "yes" ? true : attendedValue === "no" ? false : undefined;
   const madeAttendanceEasier = String(
     formData.get("madeAttendanceEasier"),
   ) as "yes" | "somewhat" | "no";
@@ -22,7 +24,7 @@ export async function submitSurveyAction(
     formData.get("interestedInFutureEvent") === "on";
   const comments = String(formData.get("comments") ?? "").trim() || undefined;
 
-  if (!signupId || !eventId || !madeAttendanceEasier || !feltComfortableSafe) {
+  if (!signupId || !eventId || attended === undefined || !madeAttendanceEasier || !feltComfortableSafe) {
     return { ok: false, error: "Please answer all required questions." };
   }
 
@@ -31,6 +33,7 @@ export async function submitSurveyAction(
       signupId,
       eventId,
       metGroup,
+      attended,
       madeAttendanceEasier,
       feltComfortableSafe,
       wouldUseAgain,

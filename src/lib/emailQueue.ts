@@ -22,6 +22,7 @@ import type {
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000";
 
 export async function queueSignupConfirmation(event: PilotEvent, signup: Signup): Promise<void> {
+  if (signup.futureEmailOptOut) return;
   if (!event.emailSignupConfirmation) return;
   if (!emailProviderConfigured()) return;
   await readyMail();
@@ -139,6 +140,7 @@ async function introductionMails(groupId: string): Promise<CrewMail[] | null> {
 }
 
 function eligible(signup: Signup, kind: "attendance_ask" | "attendance_nudge" | "group_reminder"): boolean {
+  if (signup.futureEmailOptOut) return false;
   if (signup.status === "declined" || signup.status === "no-show") return false;
   if (signup.attendanceReply === "declined") return false;
   if (kind === "group_reminder") {
@@ -335,6 +337,7 @@ function rowToSignup(row: Record<string, unknown>): Signup {
     groupId: row.group_id ? String(row.group_id) : undefined,
     surveyToken: String(row.survey_token),
     normalizedEmail: String(row.normalized_email ?? ""),
+    futureEmailOptOut: Number(row.future_email_opt_out) === 1 ? true : undefined,
     createdAt: String(row.created_at),
   };
 }

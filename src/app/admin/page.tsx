@@ -203,8 +203,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
           />
           <input
             name="meetingPoint"
-            placeholder="Public meeting point *"
-            required
+            placeholder="Public meeting point (organizer default if blank)"
             className="rounded-xl border border-stone-300 px-3 py-2 sm:col-span-2"
           />
           <input

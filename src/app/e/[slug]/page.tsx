@@ -2,27 +2,50 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BrandHeader } from "@/components/BrandHeader";
-import { SignupForm } from "@/components/SignupForm";
+import { ReturnLinkForm, SignupForm } from "@/components/SignupForm";
+import { cleanUtm } from "@/lib/attribution";
 import { formatEventDate } from "@/lib/format";
+import { recordPageCount, visitMetrics } from "@/lib/growth";
 import { registrationClosedReason } from "@/lib/registration";
 import { getEventBySlug } from "@/lib/store";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+  }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
+  const title = event ? `Find your people · ${event.name}` : "Event not found";
+  const description = event
+    ? `Sign up to meet a small crew before ${event.name}.`
+    : "Event not found";
   return {
-    title: event
-      ? `Find your people · ${event.name}`
-      : "Event not found",
+    title,
+    description,
+    openGraph: { title, description },
   };
 }
 
-export default async function EventSignupPage({ params }: Props) {
+export default async function EventSignupPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const query = await searchParams;
   const event = await getEventBySlug(slug);
   if (!event || event.status === "draft") notFound();
+  const closed = registrationClosedReason(event);
+  for (const metric of visitMetrics(!closed)) {
+    await recordPageCount({ subjectType: "event", subjectId: event.id, metric });
+  }
+  const attribution = {
+    utmSource: cleanUtm(query.utm_source),
+    utmMedium: cleanUtm(query.utm_medium),
+    utmCampaign: cleanUtm(query.utm_campaign),
+  };
 
   return (
     <div className="min-h-screen hero-glow">
@@ -104,13 +127,16 @@ export default async function EventSignupPage({ params }: Props) {
           ) : null}
         </div>
 
-        {registrationClosedReason(event) ? (
+        {closed ? (
           <div className="fun-card p-8 text-center">
             <h2 className="text-2xl font-bold text-ink">Signup is closed</h2>
-            <p className="mt-3 text-muted">{registrationClosedReason(event)}</p>
+            <p className="mt-3 text-muted">{closed}</p>
           </div>
         ) : (
-          <SignupForm event={event} />
+          <>
+            <ReturnLinkForm eventId={event.id} />
+            <SignupForm event={event} attribution={attribution} />
+          </>
         )}
 
         <p className="mt-8 text-center text-xs text-muted">

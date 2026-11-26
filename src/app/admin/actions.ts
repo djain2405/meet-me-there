@@ -14,6 +14,7 @@ import {
   createGroup,
   createNextEvent,
   createOrganizer,
+  getOrganizerById,
   setEventOrganizer,
   updateEmailSettings,
   updateEvent,
@@ -48,7 +49,12 @@ export async function createEventAction(formData: FormData) {
   const ticketUrl = String(formData.get("ticketUrl") ?? "").trim();
   const organizerId = String(formData.get("organizerId") ?? "").trim();
 
-  if (!name || !slug || !date || !venue || !meetingPoint) {
+  const organizer = organizerId ? await getOrganizerById(organizerId) : null;
+  const resolvedMeetingPoint = meetingPoint || organizer?.defaultMeetingPoint || "";
+  const attendeeInstructions = organizer?.defaultAttendeeInstructions || "";
+  const timezone = organizer?.defaultTimezone || DEFAULT_TIMEZONE;
+
+  if (!name || !slug || !date || !venue || !resolvedMeetingPoint) {
     redirect("/admin?error=missing-fields");
   }
 
@@ -58,14 +64,14 @@ export async function createEventAction(formData: FormData) {
     date,
     startTime,
     venue,
-    meetingPoint,
+    meetingPoint: resolvedMeetingPoint,
     scheduleNotes: "",
     ticketUrl,
     organizerContactName: "",
     organizerContactEmail: "",
-    attendeeInstructions: "",
+    attendeeInstructions,
     organizerId: organizerId || undefined,
-    timezone: DEFAULT_TIMEZONE,
+    timezone,
     status: "recruiting",
   });
 
@@ -172,6 +178,11 @@ export async function updateOrganizerAction(formData: FormData) {
     city: String(formData.get("city") ?? "").trim(),
     websiteUrl: String(formData.get("websiteUrl") ?? "").trim(),
     contactEmail: String(formData.get("contactEmail") ?? "").trim(),
+    defaultMeetingPoint: String(formData.get("defaultMeetingPoint") ?? "").trim(),
+    defaultAttendeeInstructions: String(
+      formData.get("defaultAttendeeInstructions") ?? "",
+    ).trim(),
+    defaultTimezone: String(formData.get("defaultTimezone") ?? "").trim(),
   });
   revalidatePath(`/admin/organizers/${id}`);
   revalidatePath("/admin");

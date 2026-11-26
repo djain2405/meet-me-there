@@ -4,8 +4,12 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { formatEventDate } from "@/lib/format";
 import { isPastOrClosed, showAlreadyHappened } from "@/lib/registration";
 import type { PilotEvent } from "@/lib/types";
+import { listCommunications } from "@/lib/emailQueue";
+import { eventOperations, sourceTotals, sumPageCounts } from "@/lib/growth";
 import {
+  getGroupsForEvent,
   getOrganizerById,
+  getSignupsForEvent,
   listEvents,
 } from "@/lib/store";
 import {
@@ -43,6 +47,49 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
     .sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
   const createNextEventId = upcoming.length > 0 ? undefined : past[0]?.id;
   const publicUrl = `${siteUrl}/c/${organizer.slug}`;
+  const eventIds = attached.map((event) => event.id);
+  const [organizerCounts, eventCounts, bundles] = await Promise.all([
+    sumPageCounts("organizer", [organizer.id]),
+    sumPageCounts("event", eventIds),
+    Promise.all(
+      attached.map(async (event) => {
+        const [signups, groups, communications] = await Promise.all([
+          getSignupsForEvent(event.id),
+          getGroupsForEvent(event.id),
+          listCommunications(event.id),
+        ]);
+        return { signups, groups, communications };
+      }),
+    ),
+  ]);
+  const operations = bundles.reduce(
+    (total, bundle) => {
+      const next = eventOperations(bundle.signups, bundle.groups, bundle.communications);
+      return {
+        signups: total.signups + next.signups,
+        coming: total.coming + next.coming,
+        declined: total.declined + next.declined,
+        unassigned: total.unassigned + next.unassigned,
+        crews: total.crews + next.crews,
+        crewsUnderMinimum: total.crewsUnderMinimum + next.crewsUnderMinimum,
+        queued: total.queued + next.queued,
+        sent: total.sent + next.sent,
+        failed: total.failed + next.failed,
+      };
+    },
+    {
+      signups: 0,
+      coming: 0,
+      declined: 0,
+      unassigned: 0,
+      crews: 0,
+      crewsUnderMinimum: 0,
+      queued: 0,
+      sent: 0,
+      failed: 0,
+    },
+  );
+  const sources = sourceTotals(bundles.flatMap((bundle) => bundle.signups));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -53,6 +100,18 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
       <p className="mt-2 break-all text-sm text-stone-600">{publicUrl}</p>
       <div className="mt-3 flex gap-2">
         <CopyLinkButton text={publicUrl} label="Copy page link" />
+        <a
+          href={`/admin/qr?download=1&url=${encodeURIComponent(publicUrl)}`}
+          className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+        >
+          Download QR
+        </a>
+        <Link
+          href={`/admin/organizers/${organizer.id}/card`}
+          className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+        >
+          Print card
+        </Link>
         <Link
           href={`/c/${organizer.slug}`}
           target="_blank"
@@ -111,6 +170,25 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
           placeholder="Short community description"
           className="rounded-xl border border-stone-300 px-3 py-2 sm:col-span-2"
         />
+        <input
+          name="defaultMeetingPoint"
+          defaultValue={organizer.defaultMeetingPoint}
+          placeholder="Default meeting point for new events"
+          className="rounded-xl border border-stone-300 px-3 py-2 sm:col-span-2"
+        />
+        <textarea
+          name="defaultAttendeeInstructions"
+          defaultValue={organizer.defaultAttendeeInstructions}
+          rows={2}
+          placeholder="Default attendee instructions for new events"
+          className="rounded-xl border border-stone-300 px-3 py-2 sm:col-span-2"
+        />
+        <input
+          name="defaultTimezone"
+          defaultValue={organizer.defaultTimezone}
+          placeholder="Default time zone, e.g. America/Los_Angeles"
+          className="rounded-xl border border-stone-300 px-3 py-2 sm:col-span-2"
+        />
         <button
           type="submit"
           className="rounded-xl bg-teal px-4 py-2 font-semibold text-white sm:col-span-2"
@@ -118,6 +196,34 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
           Save details
         </button>
       </form>
+
+      <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
+        <h2 className="font-semibold">Activity</h2>
+        <dl className="mt-4 grid gap-3 text-sm text-stone-700 sm:grid-cols-2 lg:grid-cols-4">
+          <div>Organizer page loads: {organizerCounts.page_load}</div>
+          <div>Event page loads: {eventCounts.page_load}</div>
+          <div>Registration starts: {eventCounts.registration_start}</div>
+          <div>Signups: {operations.signups}</div>
+          <div>I&apos;m coming: {operations.coming}</div>
+          <div>Declined: {operations.declined}</div>
+          <div>Unassigned: {operations.unassigned}</div>
+          <div>Crews: {operations.crews}</div>
+          <div>Crews under 3: {operations.crewsUnderMinimum}</div>
+          <div>Mail queued / sent / failed: {operations.queued} / {operations.sent} / {operations.failed}</div>
+        </dl>
+        <h3 className="mt-6 font-medium">Signup sources</h3>
+        {sources.length === 0 ? (
+          <p className="mt-2 text-sm text-stone-500">No signups yet.</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm text-stone-600">
+            {sources.map((item) => (
+              <li key={item.source}>
+                {item.source}: {item.count}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
         <h2 className="font-semibold">Events</h2>

@@ -1,11 +1,25 @@
 "use client";
 
 import { useActionState } from "react";
-import type { PilotEvent } from "@/lib/types";
-import { submitSignupAction } from "@/app/e/actions";
+import { requestReturnLinkAction, submitSignupAction } from "@/app/e/actions";
+import type { PilotEvent, Signup } from "@/lib/types";
 
 type Props = {
   event: PilotEvent;
+  attribution?: {
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+  };
+  defaults?: {
+    firstName?: string;
+    email?: string;
+    phone?: string;
+    preferredGroupSize?: Signup["preferredGroupSize"];
+    comfortPreferences?: string[];
+    willingConnector?: boolean;
+  };
+  returnToken?: string;
 };
 
 const initial: {
@@ -41,7 +55,7 @@ function FormSection({
   );
 }
 
-export function SignupForm({ event }: Props) {
+export function SignupForm({ event, attribution, defaults, returnToken }: Props) {
   const [state, action, pending] = useActionState(submitSignupAction, initial);
 
   if (state.ok && state.alreadyRegistered) {
@@ -82,6 +96,10 @@ export function SignupForm({ event }: Props) {
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="eventId" value={event.id} />
+      {returnToken ? <input type="hidden" name="returnToken" value={returnToken} /> : null}
+      <input type="hidden" name="utmSource" value={attribution?.utmSource ?? ""} />
+      <input type="hidden" name="utmMedium" value={attribution?.utmMedium ?? ""} />
+      <input type="hidden" name="utmCampaign" value={attribution?.utmCampaign ?? ""} />
 
       <FormSection
         badge="Step 1"
@@ -96,6 +114,7 @@ export function SignupForm({ event }: Props) {
             <input
               name="firstName"
               required
+              defaultValue={defaults?.firstName}
               className="input-fun"
               placeholder="The name you actually go by"
             />
@@ -108,6 +127,7 @@ export function SignupForm({ event }: Props) {
               name="email"
               type="email"
               required
+              defaultValue={defaults?.email}
               className="input-fun"
               placeholder="Where we'll send your group info"
             />
@@ -119,6 +139,7 @@ export function SignupForm({ event }: Props) {
             <input
               name="phone"
               type="tel"
+              defaultValue={defaults?.phone}
               className="input-fun"
               placeholder="Only if you want day of texts"
             />
@@ -195,7 +216,11 @@ export function SignupForm({ event }: Props) {
           <span className="mb-1.5 block text-sm font-semibold text-ink">
             Ideal group size
           </span>
-          <select name="preferredGroupSize" className="input-fun" defaultValue="no-preference">
+          <select
+            name="preferredGroupSize"
+            className="input-fun"
+            defaultValue={defaults?.preferredGroupSize ?? "no-preference"}
+          >
             <option value="no-preference">Surprise me, any size works</option>
             <option value="3">Cozy trio (~3)</option>
             <option value="4">Small squad (~4)</option>
@@ -204,7 +229,12 @@ export function SignupForm({ event }: Props) {
         </label>
 
         <label className="choice-card">
-          <input type="checkbox" name="comfortPreferences" value="women-only" />
+          <input
+            type="checkbox"
+            name="comfortPreferences"
+            value="women-only"
+            defaultChecked={defaults?.comfortPreferences?.includes("women-only")}
+          />
           <span>
             <span className="block font-semibold text-ink">
               I&apos;d love a women only group
@@ -216,7 +246,11 @@ export function SignupForm({ event }: Props) {
         </label>
 
         <label className="choice-card border-dashed border-sun bg-[#fffbf0]">
-          <input type="checkbox" name="willingConnector" />
+          <input
+            type="checkbox"
+            name="willingConnector"
+            defaultChecked={defaults?.willingConnector}
+          />
           <span>
             <span className="block font-semibold text-ink">
               I&apos;ll be the friendly face ✨
@@ -254,6 +288,12 @@ export function SignupForm({ event }: Props) {
           <span className="text-sm font-medium">I&apos;m 18 or older *</span>
         </label>
         <label className="choice-card">
+          <input type="checkbox" name="futureEmailOptOut" />
+          <span className="text-sm font-medium">
+            Don&apos;t email me about future events
+          </span>
+        </label>
+        <label className="choice-card">
           <input type="checkbox" name="conductAcknowledged" required />
           <span className="text-sm font-medium">
             I&apos;m here for good vibes and respectful company *
@@ -281,6 +321,35 @@ export function SignupForm({ event }: Props) {
         </a>
         .
       </p>
+    </form>
+  );
+}
+
+export function ReturnLinkForm({ eventId }: { eventId: string }) {
+  const [state, action, pending] = useActionState(requestReturnLinkAction, {
+    message: "",
+  });
+
+  return (
+    <form action={action} className="fun-card mb-5 p-6">
+      <h2 className="text-lg font-bold text-ink">Use my details from last time</h2>
+      <p className="mt-1 text-sm text-muted">
+        We email a one-time link. The page does not say whether this address is on file.
+      </p>
+      <input type="hidden" name="eventId" value={eventId} />
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <input
+          name="email"
+          type="email"
+          required
+          className="input-fun"
+          placeholder="Email from your last signup"
+        />
+        <button type="submit" disabled={pending} className="btn-primary px-4 py-2">
+          {pending ? "Sending…" : "Email me a link"}
+        </button>
+      </div>
+      {state.message ? <p className="mt-3 text-sm text-ink">{state.message}</p> : null}
     </form>
   );
 }

@@ -1,5 +1,6 @@
 import { ensureSchema, getDb } from "./db";
 import { createDemoStore } from "./demo";
+import { attendanceOutcome, meetupOutcome } from "./outcomes";
 import {
   DEFAULT_TIMEZONE,
   RegistrationClosedError,
@@ -92,6 +93,10 @@ function rowToSignup(row: Record<string, unknown>): Signup {
     previousGroupId: row.previous_group_id ? String(row.previous_group_id) : undefined,
     groupId: row.group_id ? String(row.group_id) : undefined,
     surveyToken: String(row.survey_token),
+    utmSource: row.utm_source ? String(row.utm_source) : undefined,
+    utmMedium: row.utm_medium ? String(row.utm_medium) : undefined,
+    utmCampaign: row.utm_campaign ? String(row.utm_campaign) : undefined,
+    futureEmailOptOut: Number(row.future_email_opt_out) === 1 ? true : undefined,
     createdAt: String(row.created_at),
   };
 }
@@ -122,6 +127,10 @@ function rowToSurvey(row: Record<string, unknown>): SurveyResponse {
     feltComfortableSafe: String(
       row.felt_comfortable_safe,
     ) as SurveyResponse["feltComfortableSafe"],
+    attended:
+      row.attended === null || row.attended === undefined
+        ? undefined
+        : Number(row.attended) === 1,
     wouldUseAgain: Boolean(row.would_use_again),
     interestedInFutureEvent: Boolean(row.interested_in_future_event),
     comments: row.comments ? String(row.comments) : undefined,
@@ -168,8 +177,8 @@ async function insertSignup(signup: Signup): Promise<void> {
       id, event_id, first_name, email, phone, attendance_certainty, arrival_time,
       preferred_session, preferred_group_size, comfort_preferences, willing_connector,
       conduct_acknowledged, age_acknowledged, status, group_id, survey_token, created_at,
-      normalized_email
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      normalized_email, utm_source, utm_medium, utm_campaign, future_email_opt_out
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       signup.id,
       signup.eventId,
@@ -189,6 +198,10 @@ async function insertSignup(signup: Signup): Promise<void> {
       signup.surveyToken,
       signup.createdAt,
       signup.normalizedEmail,
+      signup.utmSource ?? null,
+      signup.utmMedium ?? null,
+      signup.utmCampaign ?? null,
+      signup.futureEmailOptOut ? 1 : null,
     ],
   });
 }
@@ -510,6 +523,9 @@ function rowToOrganizer(row: Record<string, unknown>): Organizer {
     city: String(row.city ?? ""),
     websiteUrl: String(row.website_url ?? ""),
     contactEmail: String(row.contact_email ?? ""),
+    defaultMeetingPoint: String(row.default_meeting_point ?? ""),
+    defaultAttendeeInstructions: String(row.default_attendee_instructions ?? ""),
+    defaultTimezone: String(row.default_timezone ?? ""),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -550,6 +566,9 @@ export async function createOrganizer(data: {
   city: string;
   websiteUrl: string;
   contactEmail: string;
+  defaultMeetingPoint?: string;
+  defaultAttendeeInstructions?: string;
+  defaultTimezone?: string;
 }): Promise<Organizer> {
   await ready();
   const taken = await getOrganizerBySlug(data.slug);
@@ -557,14 +576,19 @@ export async function createOrganizer(data: {
   const now = new Date().toISOString();
   const organizer: Organizer = {
     ...data,
+    defaultMeetingPoint: data.defaultMeetingPoint ?? "",
+    defaultAttendeeInstructions: data.defaultAttendeeInstructions ?? "",
+    defaultTimezone: data.defaultTimezone ?? "",
     id: newId("org"),
     createdAt: now,
     updatedAt: now,
   };
   await getDb().execute({
     sql: `INSERT INTO organizers (
-      id, name, slug, description, city, website_url, contact_email, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, name, slug, description, city, website_url, contact_email,
+      default_meeting_point, default_attendee_instructions, default_timezone,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       organizer.id,
       organizer.name,
@@ -573,6 +597,9 @@ export async function createOrganizer(data: {
       organizer.city,
       organizer.websiteUrl,
       organizer.contactEmail,
+      organizer.defaultMeetingPoint,
+      organizer.defaultAttendeeInstructions,
+      organizer.defaultTimezone,
       organizer.createdAt,
       organizer.updatedAt,
     ],
@@ -595,7 +622,9 @@ export async function updateOrganizer(
   };
   await getDb().execute({
     sql: `UPDATE organizers SET
-      name = ?, description = ?, city = ?, website_url = ?, contact_email = ?, updated_at = ?
+      name = ?, description = ?, city = ?, website_url = ?, contact_email = ?,
+      default_meeting_point = ?, default_attendee_instructions = ?, default_timezone = ?,
+      updated_at = ?
       WHERE id = ?`,
     args: [
       next.name,
@@ -603,6 +632,9 @@ export async function updateOrganizer(
       next.city,
       next.websiteUrl,
       next.contactEmail,
+      next.defaultMeetingPoint,
+      next.defaultAttendeeInstructions,
+      next.defaultTimezone,
       next.updatedAt,
       id,
     ],
@@ -636,6 +668,16 @@ export async function updateEmailSettings(
       eventId,
     ],
   });
+}
+
+export async function getSignupById(id: string): Promise<Signup | null> {
+  await ready();
+  const result = await getDb().execute({
+    sql: "SELECT * FROM signups WHERE id = ? LIMIT 1",
+    args: [id],
+  });
+  const row = result.rows[0];
+  return row ? rowToSignup(row as Record<string, unknown>) : null;
 }
 
 export async function getSignupByAttendanceToken(token: string): Promise<Signup | null> {
@@ -854,11 +896,12 @@ export async function submitSurvey(
   };
   await getDb().execute({
     sql: `INSERT INTO surveys (
-      signup_id, event_id, met_group, made_attendance_easier, felt_comfortable_safe,
+      signup_id, event_id, met_group, attended, made_attendance_easier, felt_comfortable_safe,
       would_use_again, interested_in_future_event, comments, submitted_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(signup_id) DO UPDATE SET
       met_group = excluded.met_group,
+      attended = excluded.attended,
       made_attendance_easier = excluded.made_attendance_easier,
       felt_comfortable_safe = excluded.felt_comfortable_safe,
       would_use_again = excluded.would_use_again,
@@ -869,6 +912,7 @@ export async function submitSurvey(
       response.signupId,
       response.eventId,
       response.metGroup ? 1 : 0,
+      response.attended === undefined ? null : response.attended ? 1 : 0,
       response.madeAttendanceEasier,
       response.feltComfortableSafe,
       response.wouldUseAgain ? 1 : 0,
@@ -890,10 +934,17 @@ export type EventSummary = {
   event: PilotEvent;
   totalSignups: number;
   confirmedCount: number;
+  comingCount: number;
+  adminConfirmedCount: number;
+  attendedCount: number;
+  absentCount: number;
+  attendanceUnknownCount: number;
   groupCount: number;
   assignedCount: number;
   surveyCount: number;
   metGroupYes: number;
+  metGroupNo: number;
+  meetupUnknownCount: number;
   easier: LikertCounts;
   comfortable: LikertCounts;
   wouldUseAgain: number;
@@ -926,14 +977,28 @@ export async function getEventSummary(eventId: string): Promise<EventSummary | n
     rowToSurvey(r as Record<string, unknown>),
   );
 
+  const surveyBySignup = new Map(surveys.map((survey) => [survey.signupId, survey]));
+  const attendance = signups.map((signup) =>
+    attendanceOutcome(signup, surveyBySignup.get(signup.id)),
+  );
+  const meetups = signups.map((signup) => meetupOutcome(surveyBySignup.get(signup.id)));
+  const adminConfirmedCount = signups.filter((s) => s.status === "confirmed").length;
+
   return {
     event,
     totalSignups: signups.length,
-    confirmedCount: signups.filter((s) => s.status === "confirmed").length,
+    confirmedCount: adminConfirmedCount,
+    comingCount: signups.filter((s) => s.attendanceReply === "coming").length,
+    adminConfirmedCount,
+    attendedCount: attendance.filter((item) => item === "attended").length,
+    absentCount: attendance.filter((item) => item === "absent").length,
+    attendanceUnknownCount: attendance.filter((item) => item === "unknown").length,
     groupCount: groups.length,
     assignedCount: signups.filter((s) => s.groupId).length,
     surveyCount: surveys.length,
-    metGroupYes: surveys.filter((s) => s.metGroup).length,
+    metGroupYes: meetups.filter((item) => item === "met").length,
+    metGroupNo: meetups.filter((item) => item === "not-met").length,
+    meetupUnknownCount: meetups.filter((item) => item === "unknown").length,
     easier: countLikert(surveys, "madeAttendanceEasier"),
     comfortable: countLikert(surveys, "feltComfortableSafe"),
     wouldUseAgain: surveys.filter((s) => s.wouldUseAgain).length,

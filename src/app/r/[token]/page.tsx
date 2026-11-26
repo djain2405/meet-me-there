@@ -40,7 +40,24 @@ export default async function OrganizerReportPage({ params }: Props) {
         </p>
 
         <dl className="mt-8 grid gap-4 sm:grid-cols-2">
-          <ReportStat label="Signups" value={String(summary.totalSignups)} />
+          <ReportStat label="Registrations" value={String(summary.totalSignups)} />
+          <ReportStat label="I'm coming" value={String(summary.comingCount)} />
+          <ReportStat
+            label="Admin marked confirmed"
+            value={String(summary.adminConfirmedCount)}
+          />
+          <ReportStat label="Attended" value={String(summary.attendedCount)} />
+          <ReportStat label="Did not attend" value={String(summary.absentCount)} />
+          <ReportStat
+            label="Attendance unknown"
+            value={String(summary.attendanceUnknownCount)}
+          />
+          <ReportStat label="Met the crew" value={String(summary.metGroupYes)} />
+          <ReportStat label="Did not meet the crew" value={String(summary.metGroupNo)} />
+          <ReportStat
+            label="Meetup unknown"
+            value={String(summary.meetupUnknownCount)}
+          />
           <ReportStat label="Groups" value={String(summary.groupCount)} />
           <ReportStat
             label="People assigned"

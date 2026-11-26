@@ -2,27 +2,45 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BrandHeader } from "@/components/BrandHeader";
+import { attributionQuery } from "@/lib/attribution";
 import { formatEventDate } from "@/lib/format";
+import { recordPageCount } from "@/lib/growth";
 import { getOrganizerBySlug, listUpcomingEventsForOrganizer } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+  }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const organizer = await getOrganizerBySlug(slug);
+  const title = organizer ? `${organizer.name} · Meet Me There` : "Community";
+  const description = organizer?.description
+    ? organizer.description
+    : "Pick an upcoming event and find a small crew before you arrive.";
   return {
-    title: organizer ? `${organizer.name} · Meet Me There` : "Community",
+    title,
+    description,
+    openGraph: { title, description },
   };
 }
 
-export default async function OrganizerPage({ params }: Props) {
+export default async function OrganizerPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const query = await searchParams;
   const organizer = await getOrganizerBySlug(slug);
   if (!organizer) notFound();
+  await recordPageCount({ subjectType: "organizer", subjectId: organizer.id, metric: "page_load" });
 
   const events = await listUpcomingEventsForOrganizer(organizer.id);
+  const sourceQuery = attributionQuery(query);
 
   return (
     <div className="min-h-screen hero-glow">
@@ -62,7 +80,7 @@ export default async function OrganizerPage({ params }: Props) {
                   <p className="mt-1 text-sm text-ink">{event.venue}</p>
                   <p className="mt-1 text-sm text-teal">Open for crew signup</p>
                   <Link
-                    href={`/e/${event.slug}`}
+                    href={`/e/${event.slug}${sourceQuery}`}
                     className="btn-primary mt-4 inline-block px-5 py-2"
                   >
                     Join a crew

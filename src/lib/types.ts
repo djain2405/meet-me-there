@@ -23,6 +23,9 @@ export type Organizer = {
   city: string;
   websiteUrl: string;
   contactEmail: string;
+  defaultMeetingPoint: string;
+  defaultAttendeeInstructions: string;
+  defaultTimezone: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -78,6 +81,11 @@ export type Signup = {
   groupId?: string;
   surveyToken: string;
   normalizedEmail: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  /** Set only when the person opts out. Unset rows can still receive mail. */
+  futureEmailOptOut?: boolean;
   createdAt: string;
 };
 
@@ -96,6 +104,8 @@ export type SurveyResponse = {
   signupId: string;
   eventId: string;
   metGroup: boolean;
+  /** Missing on older surveys, which stay an unknown attendance result. */
+  attended?: boolean;
   madeAttendanceEasier: "yes" | "somewhat" | "no";
   feltComfortableSafe: "yes" | "somewhat" | "no";
   wouldUseAgain: boolean;

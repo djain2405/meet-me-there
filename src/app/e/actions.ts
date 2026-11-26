@@ -1,6 +1,8 @@
 "use server";
 
-import { RegistrationClosedError } from "@/lib/registration";
+import { cleanUtm } from "@/lib/attribution";
+import { RegistrationClosedError, normalizeEmail } from "@/lib/registration";
+import { consumeReturnLink, requestReturnLink, returnPrefill } from "@/lib/returning";
 import { createSignup } from "@/lib/store";
 import type { AttendanceCertainty } from "@/lib/types";
 
@@ -34,6 +36,8 @@ export async function submitSignupAction(
   const willingConnector = formData.get("willingConnector") === "on";
   const ageAcknowledged = formData.get("ageAcknowledged") === "on";
   const conductAcknowledged = formData.get("conductAcknowledged") === "on";
+  const futureEmailOptOut = formData.get("futureEmailOptOut") === "on";
+  const returnToken = String(formData.get("returnToken") ?? "");
 
   if (!firstName || !email || !arrivalTime) {
     return { ok: false, error: "Please fill in all required fields." };
@@ -43,6 +47,16 @@ export async function submitSignupAction(
   }
 
   try {
+    if (returnToken) {
+      const prefill = await returnPrefill(returnToken);
+      if (
+        !prefill ||
+        prefill.eventId !== eventId ||
+        normalizeEmail(prefill.signup.email) !== normalizeEmail(email)
+      ) {
+        return { ok: false, error: "This link is no longer valid." };
+      }
+    }
     const result = await createSignup(eventId, {
       firstName,
       email,
@@ -55,7 +69,12 @@ export async function submitSignupAction(
       willingConnector,
       ageAcknowledged,
       conductAcknowledged,
+      utmSource: cleanUtm(formData.get("utmSource")),
+      utmMedium: cleanUtm(formData.get("utmMedium")),
+      utmCampaign: cleanUtm(formData.get("utmCampaign")),
+      futureEmailOptOut,
     });
+    if (returnToken) await consumeReturnLink(returnToken);
     if (result.outcome === "duplicate") {
       return {
         ok: true,
@@ -71,4 +90,13 @@ export async function submitSignupAction(
     }
     return { ok: false, error: "Something went wrong. Please try again." };
   }
+}
+
+export async function requestReturnLinkAction(
+  _prev: { message: string },
+  formData: FormData,
+): Promise<{ message: string }> {
+  const eventId = String(formData.get("eventId") ?? "");
+  const email = String(formData.get("email") ?? "");
+  return { message: await requestReturnLink(eventId, email) };
 }

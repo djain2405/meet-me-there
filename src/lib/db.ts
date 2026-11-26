@@ -213,6 +213,55 @@ async function ensureRelease2Columns(db: Client): Promise<void> {
   );
 }
 
+/**
+ * Growth columns and counters.
+ * Does not rewrite signup identity, status, crew assignment, or survey answers.
+ */
+async function ensureRelease3Columns(db: Client): Promise<void> {
+  for (const column of ["utm_source", "utm_medium", "utm_campaign"]) {
+    await addColumnIfMissing(
+      db,
+      "signups",
+      column,
+      `ALTER TABLE signups ADD COLUMN ${column} TEXT`,
+    );
+  }
+  await addColumnIfMissing(
+    db,
+    "signups",
+    "future_email_opt_out",
+    "ALTER TABLE signups ADD COLUMN future_email_opt_out INTEGER",
+  );
+  for (const [column, ddl] of [
+    ["default_meeting_point", "ALTER TABLE organizers ADD COLUMN default_meeting_point TEXT NOT NULL DEFAULT ''"],
+    ["default_attendee_instructions", "ALTER TABLE organizers ADD COLUMN default_attendee_instructions TEXT NOT NULL DEFAULT ''"],
+    ["default_timezone", "ALTER TABLE organizers ADD COLUMN default_timezone TEXT NOT NULL DEFAULT ''"],
+  ] as const) {
+    await addColumnIfMissing(db, "organizers", column, ddl);
+  }
+  await addColumnIfMissing(
+    db,
+    "surveys",
+    "attended",
+    "ALTER TABLE surveys ADD COLUMN attended INTEGER",
+  );
+  await db.execute(`CREATE TABLE IF NOT EXISTS page_counts (
+    day TEXT NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, subject_type, subject_id, metric)
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS return_links (
+    token TEXT PRIMARY KEY,
+    normalized_email TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT
+  )`);
+}
+
 export function getDb(): Client {
   if (client) return client;
 
@@ -301,6 +350,7 @@ export async function ensureSchema(): Promise<void> {
     await ensureEventShareColumns(db);
     await ensureRelease1Columns(db);
     await ensureRelease2Columns(db);
+    await ensureRelease3Columns(db);
   })();
 
   return schemaReady;

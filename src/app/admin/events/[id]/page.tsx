@@ -17,6 +17,7 @@ import {
 } from "@/app/admin/actions";
 import { emailProviderConfigured } from "@/lib/emailDelivery";
 import { listCommunications, previewCrewIntroduction } from "@/lib/emailQueue";
+import { eventOperations, sourceTotals, sumPageCounts } from "@/lib/growth";
 import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,9 @@ export default async function AdminEventPage({ params }: Props) {
       preview: await previewCrewIntroduction(group.id),
     })),
   );
+  const operations = eventOperations(signups, groups, communications);
+  const sources = sourceTotals(signups);
+  const pageCounts = await sumPageCounts("event", [id]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -65,6 +69,12 @@ export default async function AdminEventPage({ params }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <CopyLinkButton text={signupUrl} />
+          <a
+            href={`/admin/qr?download=1&url=${encodeURIComponent(signupUrl)}`}
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+          >
+            Download QR
+          </a>
           <Link
             href={`/e/${event.slug}`}
             target="_blank"
@@ -234,7 +244,13 @@ export default async function AdminEventPage({ params }: Props) {
             <CopyLinkButton text={organizerNote} label="Copy organizer note" />
           </div>
           <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Signups" value={String(summary.totalSignups)} />
+            <Stat label="Registrations" value={String(summary.totalSignups)} />
+            <Stat label="I'm coming" value={String(summary.comingCount)} />
+            <Stat label="Admin marked confirmed" value={String(summary.adminConfirmedCount)} />
+            <Stat label="Attended" value={String(summary.attendedCount)} />
+            <Stat label="Attendance unknown" value={String(summary.attendanceUnknownCount)} />
+            <Stat label="Met the crew" value={String(summary.metGroupYes)} />
+            <Stat label="Meetup unknown" value={String(summary.meetupUnknownCount)} />
             <Stat label="Groups" value={String(summary.groupCount)} />
             <Stat
               label="Assigned"
@@ -278,6 +294,7 @@ export default async function AdminEventPage({ params }: Props) {
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Arrival</th>
                 <th className="px-4 py-3">Prefs</th>
+                <th className="px-4 py-3">Source</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Survey</th>
               </tr>
@@ -298,6 +315,7 @@ export default async function AdminEventPage({ params }: Props) {
                       : ""}
                     {s.willingConnector ? " · connector" : ""}
                   </td>
+                  <td className="px-4 py-3 text-stone-600">{s.utmSource || "—"}</td>
                   <td className="px-4 py-3">
                     <SignupStatusSelect signupId={s.id} status={s.status} />
                   </td>
@@ -325,6 +343,29 @@ export default async function AdminEventPage({ params }: Props) {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
+        <h2 className="font-semibold">Activity</h2>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="Page loads" value={String(pageCounts.page_load)} />
+          <Stat label="Registration starts" value={String(pageCounts.registration_start)} />
+          <Stat label="Unassigned" value={String(operations.unassigned)} />
+          <Stat label="Crews under 3" value={String(operations.crewsUnderMinimum)} />
+          <Stat label="I'm coming" value={String(operations.coming)} />
+          <Stat label="Declined" value={String(operations.declined)} />
+          <Stat label="Mail queued" value={String(operations.queued)} />
+          <Stat label="Mail sent" value={String(operations.sent)} />
+          <Stat label="Mail failed" value={String(operations.failed)} />
+        </dl>
+        <h3 className="mt-6 font-medium">Signup sources</h3>
+        <ul className="mt-2 space-y-1 text-sm text-stone-600">
+          {sources.map((item) => (
+            <li key={item.source}>
+              {item.source}: {item.count}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="mt-10">

@@ -43,6 +43,18 @@ export function SurveyForm({
       <input type="hidden" name="eventId" value={eventId} />
 
       <fieldset className="fun-card space-y-3 p-5">
+        <legend className="text-base font-bold text-ink">Did you attend? *</legend>
+        <label className="choice-card">
+          <input type="radio" name="attended" value="yes" required />
+          <span className="font-semibold">I attended</span>
+        </label>
+        <label className="choice-card">
+          <input type="radio" name="attended" value="no" />
+          <span className="font-semibold">I did not attend</span>
+        </label>
+      </fieldset>
+
+      <fieldset className="fun-card space-y-3 p-5">
         <legend className="text-base font-bold text-ink">
           Did you find your group? *
         </legend>
