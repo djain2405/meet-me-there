@@ -10,7 +10,13 @@ import {
   getSignupsForEvent,
   getStore,
 } from "@/lib/store";
-import { updateEventStatusAction } from "@/app/admin/actions";
+import {
+  sendCrewIntroductionAction,
+  updateEmailSettingsAction,
+  updateEventStatusAction,
+} from "@/app/admin/actions";
+import { emailProviderConfigured } from "@/lib/emailDelivery";
+import { listCommunications, previewCrewIntroduction } from "@/lib/emailQueue";
 import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +43,14 @@ export default async function AdminEventPage({ params }: Props) {
   const organizerNote = `Here is the anonymous summary for ${event.name}: ${reportUrl}. Counts and rates only. No names, emails, or comments. The page updates if more people respond.`;
   const surveys = store.surveys.filter((s) => s.eventId === id);
   const responded = new Set(surveys.map((s) => s.signupId));
+  const mailReady = emailProviderConfigured();
+  const communications = await listCommunications(id);
+  const introductions = await Promise.all(
+    groups.map(async (group) => ({
+      group,
+      preview: await previewCrewIntroduction(group.id),
+    })),
+  );
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -79,6 +93,98 @@ export default async function AdminEventPage({ params }: Props) {
           ),
         )}
       </div>
+
+      <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
+        <h2 className="font-semibold">Automatic emails</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Every switch stays off until you enable it for this event. Nothing is
+          sent until an email provider is configured.
+        </p>
+        {mailReady ? null : (
+          <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Email is not configured, so these switches will not send anything.
+          </p>
+        )}
+        <form action={updateEmailSettingsAction} className="mt-4 space-y-3">
+          <input type="hidden" name="eventId" value={event.id} />
+          <EmailSwitch
+            name="emailSignupConfirmation"
+            label="Signup confirmation, after a new registration is saved"
+            checked={event.emailSignupConfirmation}
+          />
+          <EmailSwitch
+            name="emailAttendanceAsk"
+            label="Still joining? about 24 hours before, with the crew when one is assigned"
+            checked={event.emailAttendanceAsk}
+          />
+          <EmailSwitch
+            name="emailAttendanceNudge"
+            label="Nudge about 12 hours before, only for people who have not answered"
+            checked={event.emailAttendanceNudge}
+          />
+          <EmailSwitch
+            name="emailGroupReminder"
+            label="Group reminder 1 to 2 hours before, only for people who said they are coming and have a crew"
+            checked={event.emailGroupReminder}
+          />
+          <button
+            type="submit"
+            className="rounded-xl bg-teal px-4 py-2 text-sm font-semibold text-white"
+          >
+            Save email switches
+          </button>
+        </form>
+
+        <div className="mt-6 space-y-4">
+          {introductions.map(({ group, preview }) => (
+            <article key={group.id} className="rounded-xl border border-stone-200 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="font-medium">{group.name} introduction</h3>
+                <form action={sendCrewIntroductionAction.bind(null, group.id, event.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-teal px-3 py-1.5 text-sm font-medium text-white"
+                  >
+                    Send introduction
+                  </button>
+                </form>
+              </div>
+              {preview && preview.recipients.length > 0 ? (
+                <div className="mt-3 text-sm text-stone-600">
+                  <p>
+                    To: {preview.recipients.map((person) => person.firstName).join(", ")}
+                  </p>
+                  <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-stone-50 p-3 text-xs text-stone-700">
+                    {preview.messages[0]?.subject}
+                    {"\n\n"}
+                    {preview.messages[0]?.body}
+                  </pre>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-stone-500">No active crew members yet.</p>
+              )}
+            </article>
+          ))}
+        </div>
+
+        <h3 className="mt-6 font-medium">Send log</h3>
+        {communications.length === 0 ? (
+          <p className="mt-2 text-sm text-stone-500">No email attempts yet.</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {communications.map((item) => (
+              <li key={item.id} className="text-sm text-stone-600">
+                <span className="font-medium capitalize">{item.status}</span>
+                {" · "}
+                {item.kind.replaceAll("_", " ")}
+                {" · "}
+                {item.recipientEmail}
+                {item.failureReason ? ` · ${item.failureReason}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
         <h2 className="font-semibold">Send surveys</h2>
@@ -248,6 +354,29 @@ export default async function AdminEventPage({ params }: Props) {
         </section>
       ) : null}
     </main>
+  );
+}
+
+function EmailSwitch({
+  name,
+  label,
+  checked,
+}: {
+  name: string;
+  label: string;
+  checked: boolean;
+}) {
+  return (
+    <label className="flex items-start gap-3 text-sm text-stone-700">
+      <input
+        type="checkbox"
+        name={name}
+        value="1"
+        defaultChecked={checked}
+        className="mt-1"
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 

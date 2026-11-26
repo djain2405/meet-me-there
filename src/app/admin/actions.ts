@@ -15,11 +15,13 @@ import {
   createNextEvent,
   createOrganizer,
   setEventOrganizer,
+  updateEmailSettings,
   updateEvent,
   updateGroup,
   updateOrganizer,
   updateSignup,
 } from "@/lib/store";
+import { sendCrewIntroduction } from "@/lib/emailQueue";
 import type { EventStatus, Group, PilotEvent, SignupStatus } from "@/lib/types";
 
 export async function loginAction(formData: FormData) {
@@ -69,6 +71,22 @@ export async function createEventAction(formData: FormData) {
 
   revalidatePath("/admin");
   redirect("/admin");
+}
+
+export async function updateEmailSettingsAction(formData: FormData) {
+  const eventId = String(formData.get("eventId") ?? "");
+  await updateEmailSettings(eventId, {
+    emailSignupConfirmation: formData.get("emailSignupConfirmation") === "1",
+    emailAttendanceAsk: formData.get("emailAttendanceAsk") === "1",
+    emailAttendanceNudge: formData.get("emailAttendanceNudge") === "1",
+    emailGroupReminder: formData.get("emailGroupReminder") === "1",
+  });
+  revalidatePath(`/admin/events/${eventId}`);
+}
+
+export async function sendCrewIntroductionAction(groupId: string, eventId: string) {
+  await sendCrewIntroduction(groupId);
+  revalidatePath(`/admin/events/${eventId}`);
 }
 
 export async function updateEventStatusAction(

@@ -46,6 +46,10 @@ function rowToEvent(row: Record<string, unknown>): PilotEvent {
     organizerId: row.organizer_id ? String(row.organizer_id) : undefined,
     timezone: String(row.timezone || DEFAULT_TIMEZONE),
     status: String(row.status) as EventStatus,
+    emailSignupConfirmation: Boolean(Number(row.email_signup_confirmation ?? 0)),
+    emailAttendanceAsk: Boolean(Number(row.email_attendance_ask ?? 0)),
+    emailAttendanceNudge: Boolean(Number(row.email_attendance_nudge ?? 0)),
+    emailGroupReminder: Boolean(Number(row.email_group_reminder ?? 0)),
     surveyEntryToken: String(row.survey_entry_token ?? ""),
     reportToken: String(row.report_token ?? ""),
     createdAt: String(row.created_at),
@@ -80,6 +84,12 @@ function rowToSignup(row: Record<string, unknown>): Signup {
     conductAcknowledged: Boolean(row.conduct_acknowledged),
     ageAcknowledged: Boolean(row.age_acknowledged),
     status: String(row.status) as SignupStatus,
+    attendanceReply:
+      row.attendance_reply === "coming" || row.attendance_reply === "declined"
+        ? row.attendance_reply
+        : undefined,
+    attendanceToken: row.attendance_token ? String(row.attendance_token) : undefined,
+    previousGroupId: row.previous_group_id ? String(row.previous_group_id) : undefined,
     groupId: row.group_id ? String(row.group_id) : undefined,
     surveyToken: String(row.survey_token),
     createdAt: String(row.created_at),
@@ -407,18 +417,44 @@ export async function createSignup(
     if (again) return { outcome: "duplicate", signup: again };
     throw error;
   }
+  try {
+    const { queueSignupConfirmation } = await import("./emailQueue");
+    await queueSignupConfirmation(event, signup);
+  } catch {
+    // A mail failure must not undo the signup.
+  }
   return { outcome: "created", signup };
 }
 
 export async function createEvent(
   data: Omit<
     PilotEvent,
-    "id" | "createdAt" | "surveyEntryToken" | "reportToken"
-  >,
+    | "id"
+    | "createdAt"
+    | "surveyEntryToken"
+    | "reportToken"
+    | "emailSignupConfirmation"
+    | "emailAttendanceAsk"
+    | "emailAttendanceNudge"
+    | "emailGroupReminder"
+  > &
+    Partial<
+      Pick<
+        PilotEvent,
+        | "emailSignupConfirmation"
+        | "emailAttendanceAsk"
+        | "emailAttendanceNudge"
+        | "emailGroupReminder"
+      >
+    >,
 ): Promise<PilotEvent> {
   await ready();
   const event: PilotEvent = {
     ...data,
+    emailSignupConfirmation: data.emailSignupConfirmation ?? false,
+    emailAttendanceAsk: data.emailAttendanceAsk ?? false,
+    emailAttendanceNudge: data.emailAttendanceNudge ?? false,
+    emailGroupReminder: data.emailGroupReminder ?? false,
     id: newId("evt"),
     timezone: data.timezone || DEFAULT_TIMEZONE,
     surveyEntryToken: crypto.randomUUID(),
@@ -572,6 +608,69 @@ export async function updateOrganizer(
     ],
   });
   return next;
+}
+
+export async function updateEmailSettings(
+  eventId: string,
+  settings: Pick<
+    PilotEvent,
+    | "emailSignupConfirmation"
+    | "emailAttendanceAsk"
+    | "emailAttendanceNudge"
+    | "emailGroupReminder"
+  >,
+): Promise<void> {
+  await ready();
+  await getDb().execute({
+    sql: `UPDATE events SET
+      email_signup_confirmation = ?,
+      email_attendance_ask = ?,
+      email_attendance_nudge = ?,
+      email_group_reminder = ?
+      WHERE id = ?`,
+    args: [
+      settings.emailSignupConfirmation ? 1 : 0,
+      settings.emailAttendanceAsk ? 1 : 0,
+      settings.emailAttendanceNudge ? 1 : 0,
+      settings.emailGroupReminder ? 1 : 0,
+      eventId,
+    ],
+  });
+}
+
+export async function getSignupByAttendanceToken(token: string): Promise<Signup | null> {
+  await ready();
+  const result = await getDb().execute({
+    sql: "SELECT * FROM signups WHERE attendance_token = ? LIMIT 1",
+    args: [token],
+  });
+  const row = result.rows[0];
+  return row ? rowToSignup(row as Record<string, unknown>) : null;
+}
+
+export async function recordAttendanceReply(
+  token: string,
+  reply: "coming" | "declined",
+): Promise<Signup | null> {
+  await ready();
+  const existing = await getSignupByAttendanceToken(token);
+  if (!existing) return null;
+  if (reply === "declined") {
+    await getDb().execute({
+      sql: `UPDATE signups SET
+        attendance_reply = 'declined',
+        previous_group_id = COALESCE(group_id, previous_group_id),
+        group_id = NULL
+        WHERE attendance_token = ?`,
+      args: [token],
+    });
+  } else {
+    await getDb().execute({
+      sql: `UPDATE signups SET attendance_reply = 'coming' WHERE attendance_token = ?`,
+      args: [token],
+    });
+  }
+  return getSignupByAttendanceToken(token);
 }
 
 export async function setEventOrganizer(

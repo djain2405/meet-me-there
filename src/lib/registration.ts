@@ -59,6 +59,26 @@ export function isUpcomingPublicEvent(
   return registrationClosedReason(event, now) === null;
 }
 
+const OPEN_ADMIN_STATUSES: EventStatus[] = ["draft", "recruiting", "matching", "live"];
+
+export function isPastOrClosed(
+  event: Pick<PilotEvent, "status" | "date" | "timezone">,
+  now: Date = new Date(),
+): boolean {
+  if (event.status === "completed" || event.status === "cancelled") return true;
+  return isEventPast(event.date, event.timezone, now);
+}
+
+export function showAlreadyHappened(
+  event: Pick<PilotEvent, "status" | "date" | "timezone">,
+  now: Date = new Date(),
+): boolean {
+  return (
+    OPEN_ADMIN_STATUSES.includes(event.status) &&
+    isEventPast(event.date, event.timezone, now)
+  );
+}
+
 export function slugify(value: string): string {
   return value
     .trim()

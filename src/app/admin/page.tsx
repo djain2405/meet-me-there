@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { formatEventDate } from "@/lib/format";
-import { isUpcomingPublicEvent } from "@/lib/registration";
+import type { Organizer, PilotEvent } from "@/lib/types";
+import {
+  isPastOrClosed,
+  isUpcomingPublicEvent,
+  showAlreadyHappened,
+} from "@/lib/registration";
 import {
   getStore,
   listDuplicateSignups,
@@ -25,13 +30,17 @@ export default async function AdminHomePage({ searchParams }: Props) {
     listDuplicateSignups(),
   ]);
 
-  const events = store.events
-    .filter((event) => {
-      if (!organizerFilter) return true;
-      if (organizerFilter === "none") return !event.organizerId;
-      return event.organizerId === organizerFilter;
-    })
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const events = store.events.filter((event) => {
+    if (!organizerFilter) return true;
+    if (organizerFilter === "none") return !event.organizerId;
+    return event.organizerId === organizerFilter;
+  });
+  const upcomingEvents = events
+    .filter((event) => !isPastOrClosed(event))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+  const pastEvents = events
+    .filter((event) => isPastOrClosed(event))
+    .sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
   const visibleIds = new Set(events.map((event) => event.id));
   const upcoming = events.filter((event) => isUpcomingPublicEvent(event));
 
@@ -145,54 +154,20 @@ export default async function AdminHomePage({ searchParams }: Props) {
         </button>
       </form>
 
-      <div className="mt-4 space-y-4">
-        {events.map((event) => {
-          const organizer = organizers.find((item) => item.id === event.organizerId);
-          const signupUrl = `${siteUrl}/e/${event.slug}`;
-          return (
-            <article
-              key={event.id}
-              className="rounded-2xl border border-stone-200 bg-white p-6"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    <Link
-                      href={`/admin/events/${event.id}`}
-                      className="hover:text-teal-dark"
-                    >
-                      {event.name}
-                    </Link>
-                  </h2>
-                  <p className="text-sm text-stone-500">
-                    {formatEventDate(event.date, event.startTime)}
-                    {organizer ? ` · ${organizer.name}` : " · No organizer"}
-                  </p>
-                  <span className="mt-2 inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium capitalize">
-                    {event.status}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <CopyLinkButton text={signupUrl} label="Copy signup link" />
-                  <Link
-                    href={`/e/${event.slug}`}
-                    target="_blank"
-                    className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
-                  >
-                    Preview
-                  </Link>
-                  <Link
-                    href={`/admin/events/${event.id}`}
-                    className="rounded-lg bg-teal px-3 py-1.5 text-sm font-medium text-white"
-                  >
-                    Manage
-                  </Link>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      <EventSection
+        title="Upcoming"
+        empty="No upcoming events."
+        events={upcomingEvents}
+        organizers={organizers}
+        siteUrl={siteUrl}
+      />
+      <EventSection
+        title="Past and closed"
+        empty="No past or closed events."
+        events={pastEvents}
+        organizers={organizers}
+        siteUrl={siteUrl}
+      />
 
       <div className="mb-10 mt-10 rounded-2xl border border-stone-200 bg-white p-6">
         <h2 className="font-semibold">Create new event</h2>
@@ -258,6 +233,85 @@ export default async function AdminHomePage({ searchParams }: Props) {
         </form>
       </div>
     </main>
+  );
+}
+
+function EventSection({
+  title,
+  empty,
+  events,
+  organizers,
+  siteUrl,
+}: {
+  title: string;
+  empty: string;
+  events: PilotEvent[];
+  organizers: Organizer[];
+  siteUrl: string;
+}) {
+  return (
+    <section className="mt-8">
+      <h2 className="font-semibold">{title}</h2>
+      {events.length === 0 ? (
+        <p className="mt-3 text-sm text-stone-500">{empty}</p>
+      ) : (
+        <div className="mt-4 space-y-4">
+          {events.map((event) => {
+            const organizer = organizers.find((item) => item.id === event.organizerId);
+            const signupUrl = `${siteUrl}/e/${event.slug}`;
+            return (
+              <article
+                key={event.id}
+                className="rounded-2xl border border-stone-200 bg-white p-6"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      <Link
+                        href={`/admin/events/${event.id}`}
+                        className="hover:text-teal-dark"
+                      >
+                        {event.name}
+                      </Link>
+                    </h3>
+                    <p className="text-sm text-stone-500">
+                      {formatEventDate(event.date, event.startTime)}
+                      {organizer ? ` · ${organizer.name}` : " · No organizer"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium capitalize">
+                        {event.status}
+                      </span>
+                      {showAlreadyHappened(event) ? (
+                        <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                          Already happened
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CopyLinkButton text={signupUrl} label="Copy signup link" />
+                    <Link
+                      href={`/e/${event.slug}`}
+                      target="_blank"
+                      className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+                    >
+                      Preview
+                    </Link>
+                    <Link
+                      href={`/admin/events/${event.id}`}
+                      className="rounded-lg bg-teal px-3 py-1.5 text-sm font-medium text-white"
+                    >
+                      Manage
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

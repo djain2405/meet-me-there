@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test src/lib/release1.test.ts"
+    "test": "node --import tsx --test src/lib/release1.test.ts && node --import tsx --test src/lib/emails.test.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

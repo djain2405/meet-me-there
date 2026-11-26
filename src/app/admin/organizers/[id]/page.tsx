@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { formatEventDate } from "@/lib/format";
+import { isPastOrClosed, showAlreadyHappened } from "@/lib/registration";
+import type { PilotEvent } from "@/lib/types";
 import {
   getOrganizerById,
   listEvents,
@@ -33,6 +35,13 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
   const events = await listEvents();
   const attached = events.filter((event) => event.organizerId === organizer.id);
   const available = events.filter((event) => event.organizerId !== organizer.id);
+  const upcoming = attached
+    .filter((event) => !isPastOrClosed(event))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+  const past = attached
+    .filter((event) => isPastOrClosed(event))
+    .sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+  const createNextEventId = upcoming.length > 0 ? undefined : past[0]?.id;
   const publicUrl = `${siteUrl}/c/${organizer.slug}`;
 
   return (
@@ -137,8 +146,48 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
           </button>
         </form>
 
-        <ul className="mt-6 space-y-4">
-          {attached.map((event) => (
+        <EventGroup
+          title="Upcoming"
+          empty="No upcoming events."
+          events={upcoming}
+          organizerId={organizer.id}
+          showCreateNext
+        />
+        <EventGroup
+          title="Past and closed"
+          empty="No past or closed events."
+          events={past}
+          organizerId={organizer.id}
+          createNextEventId={createNextEventId}
+        />
+      </section>
+    </main>
+  );
+}
+
+function EventGroup({
+  title,
+  empty,
+  events,
+  organizerId,
+  showCreateNext = false,
+  createNextEventId,
+}: {
+  title: string;
+  empty: string;
+  events: PilotEvent[];
+  organizerId: string;
+  showCreateNext?: boolean;
+  createNextEventId?: string;
+}) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-stone-700">{title}</h3>
+      {events.length === 0 ? (
+        <p className="mt-2 text-sm text-stone-500">{empty}</p>
+      ) : (
+        <ul className="mt-3 space-y-4">
+          {events.map((event) => (
             <li key={event.id} className="rounded-xl border border-stone-200 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -151,41 +200,53 @@ export default async function OrganizerDetailPage({ params, searchParams }: Prop
                   <p className="text-sm text-stone-500">
                     {formatEventDate(event.date, event.startTime)} · /e/{event.slug}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium capitalize">
+                      {event.status}
+                    </span>
+                    {showAlreadyHappened(event) ? (
+                      <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                        Already happened
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <form action={detachEventAction}>
-                  <input type="hidden" name="organizerId" value={organizer.id} />
+                  <input type="hidden" name="organizerId" value={organizerId} />
                   <input type="hidden" name="eventId" value={event.id} />
                   <button type="submit" className="text-sm text-stone-500 underline">
                     Remove from organizer
                   </button>
                 </form>
               </div>
-              <form action={createNextEventAction} className="mt-3 flex flex-wrap gap-2">
-                <input type="hidden" name="organizerId" value={organizer.id} />
-                <input type="hidden" name="sourceEventId" value={event.id} />
-                <input
-                  name="date"
-                  type="date"
-                  required
-                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
-                />
-                <input
-                  name="slug"
-                  required
-                  placeholder="new url slug"
-                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-teal px-3 py-1.5 text-sm font-medium text-white"
-                >
-                  Create next event
-                </button>
-              </form>
+              {showCreateNext || event.id === createNextEventId ? (
+                <form action={createNextEventAction} className="mt-3 flex flex-wrap gap-2">
+                  <input type="hidden" name="organizerId" value={organizerId} />
+                  <input type="hidden" name="sourceEventId" value={event.id} />
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+                  />
+                  <input
+                    name="slug"
+                    required
+                    placeholder="new url slug"
+                    className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-teal px-3 py-1.5 text-sm font-medium text-white"
+                  >
+                    Create next event
+                  </button>
+                </form>
+              ) : null}
             </li>
           ))}
         </ul>
-      </section>
-    </main>
+      )}
+    </div>
   );
 }

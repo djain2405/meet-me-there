@@ -150,6 +150,69 @@ async function ensureRelease1Columns(db: Client): Promise<void> {
   }
 }
 
+/**
+ * Opt-in email switches and a send log.
+ * Does not change signup status, crew assignment, or survey rows.
+ */
+async function ensureRelease2Columns(db: Client): Promise<void> {
+  const eventFlags = [
+    "email_signup_confirmation",
+    "email_attendance_ask",
+    "email_attendance_nudge",
+    "email_group_reminder",
+  ];
+  for (const column of eventFlags) {
+    await addColumnIfMissing(
+      db,
+      "events",
+      column,
+      `ALTER TABLE events ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`,
+    );
+  }
+
+  await addColumnIfMissing(
+    db,
+    "signups",
+    "attendance_reply",
+    "ALTER TABLE signups ADD COLUMN attendance_reply TEXT",
+  );
+  await addColumnIfMissing(
+    db,
+    "signups",
+    "attendance_token",
+    "ALTER TABLE signups ADD COLUMN attendance_token TEXT",
+  );
+  await addColumnIfMissing(
+    db,
+    "signups",
+    "previous_group_id",
+    "ALTER TABLE signups ADD COLUMN previous_group_id TEXT",
+  );
+
+  await db.execute(`CREATE TABLE IF NOT EXISTS communications (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    signup_id TEXT,
+    group_id TEXT,
+    kind TEXT NOT NULL,
+    recipient_email TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL,
+    failure_reason TEXT,
+    created_at TEXT NOT NULL,
+    sent_at TEXT
+  )`);
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_communications_event ON communications(event_id)",
+  );
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_signups_attendance_token
+     ON signups(attendance_token)
+     WHERE attendance_token IS NOT NULL AND attendance_token != ''`,
+  );
+}
+
 export function getDb(): Client {
   if (client) return client;
 
@@ -237,6 +300,7 @@ export async function ensureSchema(): Promise<void> {
     );
     await ensureEventShareColumns(db);
     await ensureRelease1Columns(db);
+    await ensureRelease2Columns(db);
   })();
 
   return schemaReady;

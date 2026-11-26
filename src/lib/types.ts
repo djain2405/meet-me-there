@@ -43,6 +43,11 @@ export type PilotEvent = {
   organizerId?: string;
   timezone: string;
   status: EventStatus;
+  /** Off until an admin enables them. Nothing sends without an email provider. */
+  emailSignupConfirmation: boolean;
+  emailAttendanceAsk: boolean;
+  emailAttendanceNudge: boolean;
+  emailGroupReminder: boolean;
   /** Unlisted shared survey URL. Attendees confirm with their signup email. */
   surveyEntryToken: string;
   /** Unlisted organizer report. Separate from the survey link. */
@@ -65,6 +70,11 @@ export type Signup = {
   conductAcknowledged: boolean;
   ageAcknowledged: boolean;
   status: SignupStatus;
+  /** Attendee choice from the secure link. Separate from the admin status. */
+  attendanceReply?: "coming" | "declined";
+  attendanceToken?: string;
+  /** Crew they left when they declined. The active crew is groupId. */
+  previousGroupId?: string;
   groupId?: string;
   surveyToken: string;
   normalizedEmail: string;
@@ -92,6 +102,30 @@ export type SurveyResponse = {
   interestedInFutureEvent: boolean;
   comments?: string;
   submittedAt: string;
+};
+
+export type CommunicationStatus = "queued" | "sent" | "failed";
+
+export type CommunicationKind =
+  | "signup_confirmation"
+  | "attendance_ask"
+  | "attendance_nudge"
+  | "group_reminder"
+  | "crew_introduction";
+
+export type Communication = {
+  id: string;
+  eventId: string;
+  signupId?: string;
+  groupId?: string;
+  kind: CommunicationKind;
+  recipientEmail: string;
+  subject: string;
+  body: string;
+  status: CommunicationStatus;
+  failureReason?: string;
+  createdAt: string;
+  sentAt?: string;
 };
 
 export type Store = {

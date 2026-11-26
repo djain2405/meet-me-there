@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { before, test } from "node:test";
 import { createClient } from "@libsql/client";
-import { RegistrationClosedError } from "./registration";
+import {
+  RegistrationClosedError,
+  isPastOrClosed,
+  showAlreadyHappened,
+} from "./registration";
 import type { EventStatus } from "./types";
 
 const dir = mkdtempSync(path.join(tmpdir(), "mmt-"));
@@ -170,6 +174,30 @@ test("closed events reject new signups", async () => {
     () => store.createSignup(completed.id, signupInput("done@example.com")),
     RegistrationClosedError,
   );
+});
+
+test("admin lists separate a past open event from an upcoming one", () => {
+  const pastOpen = {
+    status: "recruiting" as const,
+    date: "2020-01-01",
+    timezone: "America/Los_Angeles",
+  };
+  const upcoming = {
+    status: "recruiting" as const,
+    date: "2026-12-02",
+    timezone: "America/Los_Angeles",
+  };
+  const completed = {
+    status: "completed" as const,
+    date: "2026-12-16",
+    timezone: "America/Los_Angeles",
+  };
+  assert.equal(isPastOrClosed(pastOpen), true);
+  assert.equal(showAlreadyHappened(pastOpen), true);
+  assert.equal(isPastOrClosed(upcoming), false);
+  assert.equal(showAlreadyHappened(upcoming), false);
+  assert.equal(isPastOrClosed(completed), true);
+  assert.equal(showAlreadyHappened(completed), false);
 });
 
 test("organizer page lists only upcoming open events", async () => {
