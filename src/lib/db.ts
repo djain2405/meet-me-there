@@ -21,6 +21,56 @@ function resolveDatabaseUrl(): string {
   return `file:${path.join(dataDir, "meet-me-there.db")}`;
 }
 
+/**
+ * Adds share-link columns and fills tokens only where they are missing.
+ * Does not update signups, groups, or surveys.
+ */
+async function ensureEventShareColumns(db: Client): Promise<void> {
+  const info = await db.execute("PRAGMA table_info(events)");
+  const names = new Set(info.rows.map((row) => String(row.name)));
+
+  if (!names.has("survey_entry_token")) {
+    await db.execute("ALTER TABLE events ADD COLUMN survey_entry_token TEXT");
+  }
+  if (!names.has("report_token")) {
+    await db.execute("ALTER TABLE events ADD COLUMN report_token TEXT");
+  }
+
+  const missing = await db.execute(
+    `SELECT id, survey_entry_token, report_token FROM events
+     WHERE survey_entry_token IS NULL OR survey_entry_token = ''
+        OR report_token IS NULL OR report_token = ''`,
+  );
+
+  for (const row of missing.rows) {
+    const id = String(row.id);
+    const surveyToken = String(row.survey_entry_token ?? "");
+    const reportToken = String(row.report_token ?? "");
+
+    if (!surveyToken) {
+      await db.execute({
+        sql: `UPDATE events SET survey_entry_token = ?
+              WHERE id = ? AND (survey_entry_token IS NULL OR survey_entry_token = '')`,
+        args: [crypto.randomUUID(), id],
+      });
+    }
+    if (!reportToken) {
+      await db.execute({
+        sql: `UPDATE events SET report_token = ?
+              WHERE id = ? AND (report_token IS NULL OR report_token = '')`,
+        args: [crypto.randomUUID(), id],
+      });
+    }
+  }
+
+  await db.execute(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_survey_entry_token ON events(survey_entry_token)",
+  );
+  await db.execute(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_report_token ON events(report_token)",
+  );
+}
+
 export function getDb(): Client {
   if (client) return client;
 
@@ -53,7 +103,9 @@ export async function ensureSchema(): Promise<void> {
           organizer_contact_email TEXT NOT NULL DEFAULT '',
           attendee_instructions TEXT NOT NULL DEFAULT '',
           status TEXT NOT NULL,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          survey_entry_token TEXT,
+          report_token TEXT
         )`,
         `CREATE TABLE IF NOT EXISTS signups (
           id TEXT PRIMARY KEY,
@@ -101,6 +153,7 @@ export async function ensureSchema(): Promise<void> {
       ],
       "write",
     );
+    await ensureEventShareColumns(db);
   })();
 
   return schemaReady;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { GroupMatcher, SignupStatusSelect } from "@/components/GroupMatcher";
-import { pct } from "@/lib/format";
+import { countOf, likertSummary } from "@/lib/format";
 import {
   getEventById,
   getEventSummary,
@@ -33,7 +33,10 @@ export default async function AdminEventPage({ params }: Props) {
   ]);
 
   const signupUrl = `${siteUrl}/e/${event.slug}`;
+  const reportUrl = `${siteUrl}/r/${event.reportToken}`;
+  const organizerNote = `Here is the anonymous summary for ${event.name}: ${reportUrl}. Counts and rates only. No names, emails, or comments. The page updates if more people respond.`;
   const surveys = store.surveys.filter((s) => s.eventId === id);
+  const responded = new Set(surveys.map((s) => s.signupId));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -77,35 +80,81 @@ export default async function AdminEventPage({ params }: Props) {
         )}
       </div>
 
+      <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
+        <h2 className="font-semibold">Send surveys</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Each email opens with that person&apos;s own link. Their email is
+          already on the signup, so the survey does not ask for it.
+        </p>
+        <ul className="mt-4 divide-y divide-stone-100">
+          {signups.map((s) => {
+            const personalUrl = `${siteUrl}/survey/${s.surveyToken}`;
+            return (
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+              >
+                <div>
+                  <p className="font-medium">{s.firstName}</p>
+                  <p className="text-sm text-stone-500">{s.email}</p>
+                </div>
+                {responded.has(s.id) ? (
+                  <span className="text-sm font-medium text-teal-dark">
+                    Responded
+                  </span>
+                ) : (
+                  <a
+                    href={surveyMailto(s.firstName, s.email, event.name, personalUrl)}
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                  >
+                    Email survey
+                  </a>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
       {summary ? (
         <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6">
           <h2 className="font-semibold">Organizer summary (anonymized)</h2>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <p className="mt-1 text-sm text-stone-600">
+            Unlisted page. Counts only. No names, emails, or comments.
+          </p>
+          <p className="mt-3 break-all text-sm text-stone-800">{reportUrl}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <CopyLinkButton text={reportUrl} label="Copy report link" />
+            <CopyLinkButton text={organizerNote} label="Copy organizer note" />
+          </div>
+          <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Signups" value={String(summary.totalSignups)} />
             <Stat label="Groups" value={String(summary.groupCount)} />
             <Stat
               label="Assigned"
-              value={pct(summary.assignedCount, summary.totalSignups)}
+              value={countOf(summary.assignedCount, summary.totalSignups)}
             />
             <Stat
               label="Survey responses"
-              value={String(summary.surveyCount)}
+              value={countOf(summary.surveyCount, summary.totalSignups)}
             />
             <Stat
               label="Met their group"
-              value={pct(summary.metGroupYes, summary.surveyCount)}
-            />
-            <Stat
-              label="Easier to attend"
-              value={pct(summary.easierYes, summary.surveyCount)}
-            />
-            <Stat
-              label="Felt comfortable"
-              value={pct(summary.comfortableYes, summary.surveyCount)}
+              value={countOf(summary.metGroupYes, summary.surveyCount)}
             />
             <Stat
               label="Would use again"
-              value={pct(summary.wouldUseAgain, summary.surveyCount)}
+              value={countOf(summary.wouldUseAgain, summary.surveyCount)}
+            />
+            <Stat
+              label="Easier to attend"
+              value={likertSummary(summary.easier, summary.surveyCount)}
+              detail
+            />
+            <Stat
+              label="Felt comfortable"
+              value={likertSummary(summary.comfortable, summary.surveyCount)}
+              detail
             />
           </dl>
         </section>
@@ -147,10 +196,23 @@ export default async function AdminEventPage({ params }: Props) {
                     <SignupStatusSelect signupId={s.id} status={s.status} />
                   </td>
                   <td className="px-4 py-3">
-                    <CopyLinkButton
-                      text={`${siteUrl}/survey/${s.surveyToken}`}
-                      label="Survey link"
-                    />
+                    {responded.has(s.id) ? (
+                      <span className="text-sm font-medium text-teal-dark">
+                        Responded
+                      </span>
+                    ) : (
+                      <a
+                        href={surveyMailto(
+                          s.firstName,
+                          s.email,
+                          event.name,
+                          `${siteUrl}/survey/${s.surveyToken}`,
+                        )}
+                        className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                      >
+                        Email survey
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -189,13 +251,36 @@ export default async function AdminEventPage({ params }: Props) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function surveyMailto(
+  firstName: string,
+  email: string,
+  eventName: string,
+  surveyUrl: string,
+): string {
+  const subject = `How was ${eventName}?`;
+  const body = `Hey ${firstName} — thanks for showing up with your Meet Me There group at ${eventName}. One minute, if you have it:\n\n${surveyUrl}\n\nOrganizers only see totals, never your name or email.`;
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function Stat({
+  label,
+  value,
+  detail = false,
+}: {
+  label: string;
+  value: string;
+  detail?: boolean;
+}) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase tracking-wide text-stone-500">
         {label}
       </dt>
-      <dd className="mt-1 text-2xl font-bold text-stone-900">{value}</dd>
+      <dd
+        className={`mt-1 font-bold text-stone-900 ${detail ? "text-base leading-snug" : "text-2xl"}`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

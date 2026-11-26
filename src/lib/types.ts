@@ -28,6 +28,10 @@ export type PilotEvent = {
   organizerContactEmail: string;
   attendeeInstructions: string;
   status: EventStatus;
+  /** Unlisted shared survey URL. Attendees confirm with their signup email. */
+  surveyEntryToken: string;
+  /** Unlisted organizer report. Separate from the survey link. */
+  reportToken: string;
   createdAt: string;
 };
 

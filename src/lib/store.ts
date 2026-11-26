@@ -36,6 +36,8 @@ function rowToEvent(row: Record<string, unknown>): PilotEvent {
     organizerContactEmail: String(row.organizer_contact_email ?? ""),
     attendeeInstructions: String(row.attendee_instructions ?? ""),
     status: String(row.status) as EventStatus,
+    surveyEntryToken: String(row.survey_entry_token ?? ""),
+    reportToken: String(row.report_token ?? ""),
     createdAt: String(row.created_at),
   };
 }
@@ -110,8 +112,8 @@ async function insertEvent(event: PilotEvent): Promise<void> {
     sql: `INSERT INTO events (
       id, slug, name, date, start_time, venue, meeting_point, schedule_notes,
       ticket_url, organizer_contact_name, organizer_contact_email,
-      attendee_instructions, status, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      attendee_instructions, status, created_at, survey_entry_token, report_token
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       event.id,
       event.slug,
@@ -127,6 +129,8 @@ async function insertEvent(event: PilotEvent): Promise<void> {
       event.attendeeInstructions,
       event.status,
       event.createdAt,
+      event.surveyEntryToken,
+      event.reportToken,
     ],
   });
 }
@@ -228,6 +232,56 @@ export async function getEventBySlug(slug: string): Promise<PilotEvent | null> {
   return row ? rowToEvent(row as Record<string, unknown>) : null;
 }
 
+export async function getEventBySurveyEntryToken(
+  token: string,
+): Promise<PilotEvent | null> {
+  await ready();
+  const result = await getDb().execute({
+    sql: "SELECT * FROM events WHERE survey_entry_token = ? LIMIT 1",
+    args: [token],
+  });
+  const row = result.rows[0];
+  return row ? rowToEvent(row as Record<string, unknown>) : null;
+}
+
+export async function getEventByReportToken(
+  token: string,
+): Promise<PilotEvent | null> {
+  await ready();
+  const result = await getDb().execute({
+    sql: "SELECT * FROM events WHERE report_token = ? LIMIT 1",
+    args: [token],
+  });
+  const row = result.rows[0];
+  return row ? rowToEvent(row as Record<string, unknown>) : null;
+}
+
+export async function findSignupByEventEmail(
+  eventId: string,
+  email: string,
+): Promise<Signup | null> {
+  await ready();
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const result = await getDb().execute({
+    sql: `SELECT * FROM signups
+          WHERE event_id = ? AND lower(trim(email)) = ?
+          ORDER BY created_at ASC`,
+    args: [eventId, normalized],
+  });
+  const signups = result.rows.map((row) =>
+    rowToSignup(row as Record<string, unknown>),
+  );
+  if (signups.length === 0) return null;
+
+  for (const signup of signups) {
+    const existing = await getSurveyForSignup(signup.id);
+    if (!existing) return signup;
+  }
+  return signups[0];
+}
+
 export async function getEventById(id: string): Promise<PilotEvent | null> {
   await ready();
   const result = await getDb().execute({
@@ -314,12 +368,17 @@ export async function createSignup(
 }
 
 export async function createEvent(
-  data: Omit<PilotEvent, "id" | "createdAt">,
+  data: Omit<
+    PilotEvent,
+    "id" | "createdAt" | "surveyEntryToken" | "reportToken"
+  >,
 ): Promise<PilotEvent> {
   await ready();
   const event: PilotEvent = {
     ...data,
     id: newId("evt"),
+    surveyEntryToken: crypto.randomUUID(),
+    reportToken: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   };
   await insertEvent(event);
@@ -487,6 +546,12 @@ export async function submitSurvey(
   return response;
 }
 
+export type LikertCounts = {
+  yes: number;
+  somewhat: number;
+  no: number;
+};
+
 export type EventSummary = {
   event: PilotEvent;
   totalSignups: number;
@@ -495,10 +560,21 @@ export type EventSummary = {
   assignedCount: number;
   surveyCount: number;
   metGroupYes: number;
-  easierYes: number;
-  comfortableYes: number;
+  easier: LikertCounts;
+  comfortable: LikertCounts;
   wouldUseAgain: number;
 };
+
+function countLikert(
+  surveys: SurveyResponse[],
+  key: "madeAttendanceEasier" | "feltComfortableSafe",
+): LikertCounts {
+  return {
+    yes: surveys.filter((survey) => survey[key] === "yes").length,
+    somewhat: surveys.filter((survey) => survey[key] === "somewhat").length,
+    no: surveys.filter((survey) => survey[key] === "no").length,
+  };
+}
 
 export async function getEventSummary(eventId: string): Promise<EventSummary | null> {
   const event = await getEventById(eventId);
@@ -524,8 +600,8 @@ export async function getEventSummary(eventId: string): Promise<EventSummary | n
     assignedCount: signups.filter((s) => s.groupId).length,
     surveyCount: surveys.length,
     metGroupYes: surveys.filter((s) => s.metGroup).length,
-    easierYes: surveys.filter((s) => s.madeAttendanceEasier === "yes").length,
-    comfortableYes: surveys.filter((s) => s.feltComfortableSafe === "yes").length,
+    easier: countLikert(surveys, "madeAttendanceEasier"),
+    comfortable: countLikert(surveys, "feltComfortableSafe"),
     wouldUseAgain: surveys.filter((s) => s.wouldUseAgain).length,
   };
 }

@@ -18,6 +18,8 @@ export const DEMO_EVENT: PilotEvent = {
   attendeeInstructions:
     "Bring your ticket QR code. Street parking is available on Oak and Maple.",
   status: "recruiting",
+  surveyEntryToken: "demo-survey-entry",
+  reportToken: "demo-report",
   createdAt: "2026-06-01T10:00:00.000Z",
 };
 

@@ -31,10 +31,20 @@ export default function PrivacyPage() {
             <h2 className="font-bold">Why we collect it</h2>
             <p className="mt-1 text-muted">
               To match you into a small group, share meetup details, send
-              optional post-event feedback links, and share anonymized summary
+              optional post-event feedback, and share anonymized summary
               metrics with the event organizer (for example signup counts and
               survey percentages). Organizers do not automatically receive your
               raw email or phone.
+            </p>
+          </div>
+          <div>
+            <h2 className="font-bold">Shared links</h2>
+            <p className="mt-1 text-muted">
+              The follow-up survey link is personal to your signup, so you are
+              not asked to type your email again. Your response is saved on that
+              signup. The organizer report is a separate unlisted page of
+              aggregate counts. It is not a public directory, and it does not
+              include names, emails, phone numbers, or comments.
             </p>
           </div>
           <div>
