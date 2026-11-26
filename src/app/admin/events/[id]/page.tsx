@@ -62,7 +62,7 @@ export default async function AdminEventPage({ params }: Props) {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {(["recruiting", "matching", "live", "completed"] as const).map(
+        {(["recruiting", "matching", "live", "completed", "cancelled"] as const).map(
           (status) => (
             <form key={status} action={updateEventStatusAction.bind(null, id, status)}>
               <button

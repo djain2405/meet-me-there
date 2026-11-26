@@ -8,7 +8,12 @@ type Props = {
   event: PilotEvent;
 };
 
-const initial: { ok: boolean; error: string; firstName?: string } = {
+const initial: {
+  ok: boolean;
+  error: string;
+  firstName?: string;
+  alreadyRegistered?: boolean;
+} = {
   ok: false,
   error: "",
 };
@@ -38,6 +43,21 @@ function FormSection({
 
 export function SignupForm({ event }: Props) {
   const [state, action, pending] = useActionState(submitSignupAction, initial);
+
+  if (state.ok && state.alreadyRegistered) {
+    return (
+      <div className="rounded-3xl border-2 border-teal/30 bg-white p-10 text-center">
+        <p className="text-3xl font-bold text-ink">
+          You&apos;re already signed up, {state.firstName}.
+        </p>
+        <p className="mx-auto mt-4 max-w-md text-lg text-muted">
+          We kept your original registration for{" "}
+          <strong className="text-ink">{event.name}</strong>. Nothing was
+          overwritten.
+        </p>
+      </div>
+    );
+  }
 
   if (state.ok) {
     return (

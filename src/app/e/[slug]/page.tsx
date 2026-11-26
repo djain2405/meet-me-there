@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BrandHeader } from "@/components/BrandHeader";
 import { SignupForm } from "@/components/SignupForm";
 import { formatEventDate } from "@/lib/format";
+import { registrationClosedReason } from "@/lib/registration";
 import { getEventBySlug } from "@/lib/store";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -103,7 +104,14 @@ export default async function EventSignupPage({ params }: Props) {
           ) : null}
         </div>
 
-        <SignupForm event={event} />
+        {registrationClosedReason(event) ? (
+          <div className="fun-card p-8 text-center">
+            <h2 className="text-2xl font-bold text-ink">Signup is closed</h2>
+            <p className="mt-3 text-muted">{registrationClosedReason(event)}</p>
+          </div>
+        ) : (
+          <SignupForm event={event} />
+        )}
 
         <p className="mt-8 text-center text-xs text-muted">
           Questions about the event itself? That&apos;s the organizer&apos;s lane.

@@ -18,6 +18,7 @@ export const DEMO_EVENT: PilotEvent = {
   attendeeInstructions:
     "Bring your ticket QR code. Street parking is available on Oak and Maple.",
   status: "recruiting",
+  timezone: "America/Los_Angeles",
   surveyEntryToken: "demo-survey-entry",
   reportToken: "demo-report",
   createdAt: "2026-06-01T10:00:00.000Z",
@@ -40,6 +41,7 @@ const DEMO_SIGNUPS: Signup[] = [
     status: "confirmed",
     groupId: "grp_demo_1",
     surveyToken: "survey_demo_maya",
+    normalizedEmail: "maya@example.com",
     createdAt: "2026-06-10T14:00:00.000Z",
   },
   {
@@ -57,6 +59,7 @@ const DEMO_SIGNUPS: Signup[] = [
     status: "confirmed",
     groupId: "grp_demo_1",
     surveyToken: "survey_demo_alex",
+    normalizedEmail: "alex@example.com",
     createdAt: "2026-06-11T09:30:00.000Z",
   },
   {
@@ -73,6 +76,7 @@ const DEMO_SIGNUPS: Signup[] = [
     ageAcknowledged: true,
     status: "pending",
     surveyToken: "survey_demo_priya",
+    normalizedEmail: "priya@example.com",
     createdAt: "2026-06-12T18:00:00.000Z",
   },
   {
@@ -91,6 +95,7 @@ const DEMO_SIGNUPS: Signup[] = [
     status: "confirmed",
     groupId: "grp_demo_1",
     surveyToken: "survey_demo_sam",
+    normalizedEmail: "sam@example.com",
     createdAt: "2026-06-13T11:00:00.000Z",
   },
 ];

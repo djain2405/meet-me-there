@@ -1,9 +1,15 @@
 "use server";
 
+import { RegistrationClosedError } from "@/lib/registration";
 import { createSignup } from "@/lib/store";
 import type { AttendanceCertainty } from "@/lib/types";
 
-type State = { ok: boolean; error: string; firstName?: string };
+type State = {
+  ok: boolean;
+  error: string;
+  firstName?: string;
+  alreadyRegistered?: boolean;
+};
 
 export async function submitSignupAction(
   _prev: State,
@@ -37,7 +43,7 @@ export async function submitSignupAction(
   }
 
   try {
-    await createSignup(eventId, {
+    const result = await createSignup(eventId, {
       firstName,
       email,
       phone,
@@ -50,8 +56,19 @@ export async function submitSignupAction(
       ageAcknowledged,
       conductAcknowledged,
     });
-    return { ok: true, error: "", firstName };
-  } catch {
+    if (result.outcome === "duplicate") {
+      return {
+        ok: true,
+        error: "",
+        firstName: result.signup.firstName,
+        alreadyRegistered: true,
+      };
+    }
+    return { ok: true, error: "", firstName: result.signup.firstName };
+  } catch (error) {
+    if (error instanceof RegistrationClosedError) {
+      return { ok: false, error: error.message };
+    }
     return { ok: false, error: "Something went wrong. Please try again." };
   }
 }

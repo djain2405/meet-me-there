@@ -1,8 +1,16 @@
 import { ensureSchema, getDb } from "./db";
 import { createDemoStore } from "./demo";
+import {
+  DEFAULT_TIMEZONE,
+  RegistrationClosedError,
+  isUpcomingPublicEvent,
+  normalizeEmail,
+  registrationClosedReason,
+} from "./registration";
 import type {
   Group,
   PilotEvent,
+  Organizer,
   Signup,
   Store,
   SurveyResponse,
@@ -35,6 +43,8 @@ function rowToEvent(row: Record<string, unknown>): PilotEvent {
     organizerContactName: String(row.organizer_contact_name ?? ""),
     organizerContactEmail: String(row.organizer_contact_email ?? ""),
     attendeeInstructions: String(row.attendee_instructions ?? ""),
+    organizerId: row.organizer_id ? String(row.organizer_id) : undefined,
+    timezone: String(row.timezone || DEFAULT_TIMEZONE),
     status: String(row.status) as EventStatus,
     surveyEntryToken: String(row.survey_entry_token ?? ""),
     reportToken: String(row.report_token ?? ""),
@@ -55,6 +65,9 @@ function rowToSignup(row: Record<string, unknown>): Signup {
     eventId: String(row.event_id),
     firstName: String(row.first_name),
     email: String(row.email),
+    normalizedEmail: String(
+      row.normalized_email || normalizeEmail(String(row.email ?? "")),
+    ),
     phone: row.phone ? String(row.phone) : undefined,
     attendanceCertainty: String(row.attendance_certainty) as AttendanceCertainty,
     arrivalTime: String(row.arrival_time),
@@ -112,8 +125,9 @@ async function insertEvent(event: PilotEvent): Promise<void> {
     sql: `INSERT INTO events (
       id, slug, name, date, start_time, venue, meeting_point, schedule_notes,
       ticket_url, organizer_contact_name, organizer_contact_email,
-      attendee_instructions, status, created_at, survey_entry_token, report_token
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      attendee_instructions, status, created_at, survey_entry_token, report_token,
+      organizer_id, timezone
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       event.id,
       event.slug,
@@ -131,6 +145,8 @@ async function insertEvent(event: PilotEvent): Promise<void> {
       event.createdAt,
       event.surveyEntryToken,
       event.reportToken,
+      event.organizerId ?? null,
+      event.timezone || DEFAULT_TIMEZONE,
     ],
   });
 }
@@ -141,8 +157,9 @@ async function insertSignup(signup: Signup): Promise<void> {
     sql: `INSERT INTO signups (
       id, event_id, first_name, email, phone, attendance_certainty, arrival_time,
       preferred_session, preferred_group_size, comfort_preferences, willing_connector,
-      conduct_acknowledged, age_acknowledged, status, group_id, survey_token, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      conduct_acknowledged, age_acknowledged, status, group_id, survey_token, created_at,
+      normalized_email
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       signup.id,
       signup.eventId,
@@ -161,6 +178,7 @@ async function insertSignup(signup: Signup): Promise<void> {
       signup.groupId ?? null,
       signup.surveyToken,
       signup.createdAt,
+      signup.normalizedEmail,
     ],
   });
 }
@@ -347,24 +365,49 @@ export async function getSurveyForSignup(
   return row ? rowToSurvey(row as Record<string, unknown>) : null;
 }
 
+export type CreateSignupResult =
+  | { outcome: "created"; signup: Signup }
+  | { outcome: "duplicate"; signup: Signup };
+
 export async function createSignup(
   eventId: string,
   data: Omit<
     Signup,
-    "id" | "eventId" | "status" | "surveyToken" | "createdAt" | "groupId"
+    | "id"
+    | "eventId"
+    | "status"
+    | "surveyToken"
+    | "createdAt"
+    | "groupId"
+    | "normalizedEmail"
   >,
-): Promise<Signup> {
+): Promise<CreateSignupResult> {
   await ready();
+  const event = await getEventById(eventId);
+  if (!event) throw new Error("Event not found");
+  const closed = registrationClosedReason(event);
+  if (closed) throw new RegistrationClosedError(closed);
+
+  const existing = await findSignupByEventEmail(eventId, data.email);
+  if (existing) return { outcome: "duplicate", signup: existing };
+
   const signup: Signup = {
     ...data,
+    normalizedEmail: normalizeEmail(data.email),
     id: newId("sig"),
     eventId,
     status: "pending",
     surveyToken: newId("survey"),
     createdAt: new Date().toISOString(),
   };
-  await insertSignup(signup);
-  return signup;
+  try {
+    await insertSignup(signup);
+  } catch (error) {
+    const again = await findSignupByEventEmail(eventId, data.email);
+    if (again) return { outcome: "duplicate", signup: again };
+    throw error;
+  }
+  return { outcome: "created", signup };
 }
 
 export async function createEvent(
@@ -377,6 +420,7 @@ export async function createEvent(
   const event: PilotEvent = {
     ...data,
     id: newId("evt"),
+    timezone: data.timezone || DEFAULT_TIMEZONE,
     surveyEntryToken: crypto.randomUUID(),
     reportToken: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
@@ -397,7 +441,8 @@ export async function updateEvent(
     sql: `UPDATE events SET
       slug = ?, name = ?, date = ?, start_time = ?, venue = ?, meeting_point = ?,
       schedule_notes = ?, ticket_url = ?, organizer_contact_name = ?,
-      organizer_contact_email = ?, attendee_instructions = ?, status = ?
+      organizer_contact_email = ?, attendee_instructions = ?, status = ?,
+      organizer_id = ?, timezone = ?
       WHERE id = ?`,
     args: [
       next.slug,
@@ -412,10 +457,200 @@ export async function updateEvent(
       next.organizerContactEmail,
       next.attendeeInstructions,
       next.status,
+      next.organizerId ?? null,
+      next.timezone || DEFAULT_TIMEZONE,
       id,
     ],
   });
   return next;
+}
+
+function rowToOrganizer(row: Record<string, unknown>): Organizer {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    slug: String(row.slug),
+    description: String(row.description ?? ""),
+    city: String(row.city ?? ""),
+    websiteUrl: String(row.website_url ?? ""),
+    contactEmail: String(row.contact_email ?? ""),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+export async function listOrganizers(): Promise<Organizer[]> {
+  await ready();
+  const result = await getDb().execute(
+    "SELECT * FROM organizers ORDER BY name ASC",
+  );
+  return result.rows.map((row) => rowToOrganizer(row as Record<string, unknown>));
+}
+
+export async function getOrganizerById(id: string): Promise<Organizer | null> {
+  await ready();
+  const result = await getDb().execute({
+    sql: "SELECT * FROM organizers WHERE id = ? LIMIT 1",
+    args: [id],
+  });
+  const row = result.rows[0];
+  return row ? rowToOrganizer(row as Record<string, unknown>) : null;
+}
+
+export async function getOrganizerBySlug(slug: string): Promise<Organizer | null> {
+  await ready();
+  const result = await getDb().execute({
+    sql: "SELECT * FROM organizers WHERE slug = ? LIMIT 1",
+    args: [slug],
+  });
+  const row = result.rows[0];
+  return row ? rowToOrganizer(row as Record<string, unknown>) : null;
+}
+
+export async function createOrganizer(data: {
+  name: string;
+  slug: string;
+  description: string;
+  city: string;
+  websiteUrl: string;
+  contactEmail: string;
+}): Promise<Organizer> {
+  await ready();
+  const taken = await getOrganizerBySlug(data.slug);
+  if (taken) throw new Error("That URL is already in use.");
+  const now = new Date().toISOString();
+  const organizer: Organizer = {
+    ...data,
+    id: newId("org"),
+    createdAt: now,
+    updatedAt: now,
+  };
+  await getDb().execute({
+    sql: `INSERT INTO organizers (
+      id, name, slug, description, city, website_url, contact_email, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      organizer.id,
+      organizer.name,
+      organizer.slug,
+      organizer.description,
+      organizer.city,
+      organizer.websiteUrl,
+      organizer.contactEmail,
+      organizer.createdAt,
+      organizer.updatedAt,
+    ],
+  });
+  return organizer;
+}
+
+export async function updateOrganizer(
+  id: string,
+  patch: Partial<Omit<Organizer, "id" | "slug" | "createdAt">>,
+): Promise<Organizer | null> {
+  await ready();
+  const existing = await getOrganizerById(id);
+  if (!existing) return null;
+  const next: Organizer = {
+    ...existing,
+    ...patch,
+    slug: existing.slug,
+    updatedAt: new Date().toISOString(),
+  };
+  await getDb().execute({
+    sql: `UPDATE organizers SET
+      name = ?, description = ?, city = ?, website_url = ?, contact_email = ?, updated_at = ?
+      WHERE id = ?`,
+    args: [
+      next.name,
+      next.description,
+      next.city,
+      next.websiteUrl,
+      next.contactEmail,
+      next.updatedAt,
+      id,
+    ],
+  });
+  return next;
+}
+
+export async function setEventOrganizer(
+  eventId: string,
+  organizerId: string | null,
+): Promise<void> {
+  await ready();
+  await getDb().execute({
+    sql: "UPDATE events SET organizer_id = ? WHERE id = ?",
+    args: [organizerId, eventId],
+  });
+}
+
+export async function listUpcomingEventsForOrganizer(
+  organizerId: string,
+  now: Date = new Date(),
+): Promise<PilotEvent[]> {
+  const events = await listEvents();
+  return events
+    .filter(
+      (event) =>
+        event.organizerId === organizerId && isUpcomingPublicEvent(event, now),
+    )
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime),
+    );
+}
+
+export async function createNextEvent(
+  sourceId: string,
+  date: string,
+  slug: string,
+): Promise<PilotEvent> {
+  const source = await getEventById(sourceId);
+  if (!source) throw new Error("Event not found");
+  const taken = await getEventBySlug(slug);
+  if (taken) throw new Error("That event URL is already in use.");
+  return createEvent({
+    name: source.name,
+    slug,
+    date,
+    startTime: source.startTime,
+    venue: source.venue,
+    meetingPoint: source.meetingPoint,
+    scheduleNotes: source.scheduleNotes,
+    ticketUrl: source.ticketUrl,
+    organizerContactName: source.organizerContactName,
+    organizerContactEmail: source.organizerContactEmail,
+    attendeeInstructions: source.attendeeInstructions,
+    organizerId: source.organizerId,
+    timezone: source.timezone,
+    status: "recruiting",
+  });
+}
+
+export type AttentionItem = {
+  kind: "unassigned" | "declined-in-crew" | "duplicate";
+  eventId: string;
+  eventName: string;
+  detail: string;
+};
+
+export async function listDuplicateSignups(): Promise<
+  { eventId: string; email: string; count: number }[]
+> {
+  await ready();
+  const result = await getDb().execute(
+    `SELECT event_id, normalized_email, COUNT(*) AS c
+     FROM signups
+     WHERE normalized_email IS NOT NULL AND normalized_email != ''
+     GROUP BY event_id, normalized_email
+     HAVING COUNT(*) > 1`,
+  );
+  return result.rows.map((row) => ({
+    eventId: String(row.event_id),
+    email: String(row.normalized_email),
+    count: Number(row.c),
+  }));
 }
 
 export async function updateSignup(

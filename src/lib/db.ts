@@ -71,6 +71,85 @@ async function ensureEventShareColumns(db: Client): Promise<void> {
   );
 }
 
+async function columnNames(db: Client, table: string): Promise<Set<string>> {
+  const info = await db.execute(`PRAGMA table_info(${table})`);
+  return new Set(info.rows.map((row) => String(row.name)));
+}
+
+async function addColumnIfMissing(
+  db: Client,
+  table: string,
+  column: string,
+  ddl: string,
+): Promise<void> {
+  const names = await columnNames(db, table);
+  if (!names.has(column)) await db.execute(ddl);
+}
+
+/**
+ * Adds organizer linkage and normalized emails.
+ * Does not rewrite signup identity, crew assignment, or survey rows.
+ */
+async function ensureRelease1Columns(db: Client): Promise<void> {
+  await db.execute(`CREATE TABLE IF NOT EXISTS organizers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    city TEXT NOT NULL DEFAULT '',
+    website_url TEXT NOT NULL DEFAULT '',
+    contact_email TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+
+  await addColumnIfMissing(
+    db,
+    "events",
+    "organizer_id",
+    "ALTER TABLE events ADD COLUMN organizer_id TEXT",
+  );
+  await addColumnIfMissing(
+    db,
+    "events",
+    "timezone",
+    "ALTER TABLE events ADD COLUMN timezone TEXT DEFAULT 'America/Los_Angeles'",
+  );
+  await addColumnIfMissing(
+    db,
+    "signups",
+    "normalized_email",
+    "ALTER TABLE signups ADD COLUMN normalized_email TEXT",
+  );
+
+  await db.execute(
+    `UPDATE events SET timezone = 'America/Los_Angeles'
+     WHERE timezone IS NULL OR timezone = ''`,
+  );
+  await db.execute(
+    `UPDATE signups SET normalized_email = lower(trim(email))
+     WHERE normalized_email IS NULL OR normalized_email = ''`,
+  );
+
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_events_organizer ON events(organizer_id)",
+  );
+
+  const dupes = await db.execute(
+    `SELECT event_id, normalized_email, COUNT(*) AS c
+     FROM signups
+     WHERE normalized_email IS NOT NULL AND normalized_email != ''
+     GROUP BY event_id, normalized_email
+     HAVING COUNT(*) > 1`,
+  );
+  if (dupes.rows.length === 0) {
+    await db.execute(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_signups_event_email
+       ON signups(event_id, normalized_email)`,
+    );
+  }
+}
+
 export function getDb(): Client {
   if (client) return client;
 
@@ -105,7 +184,9 @@ export async function ensureSchema(): Promise<void> {
           status TEXT NOT NULL,
           created_at TEXT NOT NULL,
           survey_entry_token TEXT,
-          report_token TEXT
+          report_token TEXT,
+          organizer_id TEXT,
+          timezone TEXT DEFAULT 'America/Los_Angeles'
         )`,
         `CREATE TABLE IF NOT EXISTS signups (
           id TEXT PRIMARY KEY,
@@ -124,7 +205,8 @@ export async function ensureSchema(): Promise<void> {
           status TEXT NOT NULL,
           group_id TEXT,
           survey_token TEXT NOT NULL UNIQUE,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          normalized_email TEXT
         )`,
         `CREATE TABLE IF NOT EXISTS groups (
           id TEXT PRIMARY KEY,
@@ -154,6 +236,7 @@ export async function ensureSchema(): Promise<void> {
       "write",
     );
     await ensureEventShareColumns(db);
+    await ensureRelease1Columns(db);
   })();
 
   return schemaReady;
